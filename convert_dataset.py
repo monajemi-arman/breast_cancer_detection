@@ -63,8 +63,11 @@ for inbreast_xml in inbreast_xmls:
     entries = xml_dict['plist']['dict']['array']['dict']['array']['dict']
     if not isinstance(entries, list):
         entries = [entries]
+    # Prepare rois dict/list
+    rois = {}
+    for cls in chosen_classes:
+        rois[cls] = []
     # Get every ROI and save in rois[]
-    rois = []
     for entry in entries:
         class_name = entry['string'][1]
         inbreast_classes.add(class_name)
@@ -80,9 +83,9 @@ for inbreast_xml in inbreast_xmls:
                 roi = ast.literal_eval(roi)
             if len(roi) > 2:
                 roi = np.array(roi, dtype=np.int32)  # Required for later cv2.fillPoly
-                rois.append(roi)
+                rois[class_name].append(roi)
 
-    if len(rois) > 0:
+    if any(rois.values()):
         # Get corresponding DICOM image prefix in name
         dcm_prefix = Path(inbreast_xml).stem
         for filename in os.listdir(inbreast_dcm_dir):
@@ -99,7 +102,8 @@ for inbreast_xml in inbreast_xmls:
         if json_or_mask_choice != 'json':
             # Create mask
             mask = np.zeros(pixel_array.shape, dtype=np.uint8)
-            mask = cv2.fillPoly(mask, rois, 255)
+            for cls in chosen_classes:
+                mask = cv2.fillPoly(mask, rois[cls], 255 - chosen_classes.index(cls))
             mask = Image.fromarray(mask)
             mask.save(os.path.join(mask_out_dir, dcm_prefix + '.png'), format='PNG')
         if json_or_mask_choice != 'mask':
@@ -116,14 +120,21 @@ for inbreast_xml in inbreast_xmls:
                 'date_captured': image_date
             })
             # Add annotations to JSON
-            for roi in rois:
-                json_data['annotations'].append({
-                    'id': annotation_id,
-                    'image_id': image_id,
-                    'category_id': None,
-                    'segmentation': roi,
-                    'bbox': None
-                })
+            for cls in rois.keys():
+                for roi in rois[cls]:
+                    # Calculate bounding box
+                    roi = roi.astype(int)
+                    x_s, y_s = roi[:, 0], roi[:, 1]
+                    bbox = np.array([x_s.min(), y_s.min(), x_s.max(), y_s.max()]).tolist()
+                    # Bug: Currently, we are not taking into account the polygons with disconnected parts.
+                    # They may not be present in INBreast dataset, however, it is something that we could not
+                    # take into account.
+                    json_data['annotations'].append({
+                        'image_id': image_id,
+                        'category_id': chosen_classes.index(cls),
+                        'segmentation': [roi.tolist()],
+                        'bbox': bbox
+                    })
 
 if json_data:
     with open(json_out, 'w') as f:
