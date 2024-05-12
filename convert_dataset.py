@@ -11,25 +11,28 @@ import xmltodict
 import numpy as np
 from PIL import Image
 import json
+import yaml
 
 # --- Parameters --- #
-# Output paths
-image_out_dir = 'images'
-mask_out_dir = 'masks' # Mask
-json_out = 'annotations.json' # COCO
-txt_out_dir = 'labels' # Yolo
+# Change as necessary
 output_choice = 'yolo'  # yolo/coco/mask
-# Classes chosen for segmentation
-chosen_classes = ['Mass']
-
-# Overall Counters for ID
-image_id = 0
-
+# Input paths
 # INBreast Dataset
 # Dir paths
 inbreast_path = os.path.join('datasets', 'INbreast Release 1.0/')
 inbreast_xml_dir = os.path.join(inbreast_path, 'AllXML')
 inbreast_dcm_dir = os.path.join(inbreast_path, 'AllDICOMs')
+# Output paths
+image_out_dir = 'images' # Images
+mask_out_dir = 'masks' # Mask
+json_out = 'annotations.json' # COCO
+yaml_out = 'dataset.yaml' # YOLO .yaml
+txt_out_dir = 'labels' # YOLO labels .txt
+# Classes chosen for segmentation
+chosen_classes = ['Mass']
+
+# Overall Counters for ID
+image_id = 0
 
 # --- End of Parameters --- #
 
@@ -161,6 +164,15 @@ for inbreast_xml in inbreast_xmls:
     if txt_lines and len(txt_lines) > 0:
         with open(os.path.join(txt_out_dir, dcm_prefix + '.txt'), 'w') as f:
             f.writelines(txt_lines)
+        # Required for YOLO
+        yaml_data = {
+            'path': os.getcwd(),
+            'train': image_out_dir,
+            'val': image_out_dir,
+            'names': chosen_classes
+        }
+        with open(yaml_out, 'w') as f:
+            yaml.dump(yaml_data, f)
 
 
 if json_data:

@@ -1,8 +1,13 @@
 # Project specific files
 datasets/
 images/
+labels/
 masks/
 archive/
+*.yaml
+*.pt
+*.cache
+run/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
