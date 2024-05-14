@@ -1,4 +1,4 @@
-# mammography_lesion_detection
-Lesion Detection of Mammography Images using Deep Learning models with PyTorch
+# Breast_Cancer_Detection
+Breast cancer detection using mammography images, utilizing deep learning models
 
 Work in progress... Project **incomplete**.
