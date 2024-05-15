@@ -12,14 +12,21 @@ import numpy as np
 from PIL import Image
 import json
 import yaml
+from csv import DictReader
+import shutil
 
 # --- Parameters --- #
 # Change as necessary
 output_choice = 'yolo'  # yolo/coco/mask
-# Input paths
+
+# --- Input paths --- #
+# CBIS-DDSM Dataset
+cbis_path = os.path.join('datasets/CBIS-DDSM')
+cbis_jpeg = os.path.join(cbis_path, 'jpeg')
+cbis_csv = os.path.join(cbis_path, 'csv')
 # INBreast Dataset
 # Dir paths
-inbreast_path = os.path.join('datasets', 'INbreast Release 1.0/')
+inbreast_path = os.path.join('datasets', 'INbreast Release 1.0')
 inbreast_xml_dir = os.path.join(inbreast_path, 'AllXML')
 inbreast_dcm_dir = os.path.join(inbreast_path, 'AllDICOMs')
 # Output paths
@@ -28,8 +35,9 @@ mask_out_dir = 'masks' # Mask
 json_out = 'annotations.json' # COCO
 yaml_out = 'dataset.yaml' # YOLO .yaml
 txt_out_dir = 'labels' # YOLO labels .txt
+# --- End of Input paths --- #
 # Classes chosen for segmentation
-chosen_classes = ['Mass']
+chosen_classes = ['mass', 'calcification']
 
 # Overall Counters for ID
 image_id = 0
@@ -61,6 +69,8 @@ for directory in [image_out_dir, mask_out_dir, txt_out_dir]:
     if directory and not os.path.isdir(directory):
         os.mkdir(directory)
 
+# --- INBreast --- #
+
 inbreast_classes = set()
 inbreast_xmls = [str(x) for x in list(Path(inbreast_xml_dir).glob('*.xml'))]  # Load XML paths
 
@@ -80,6 +90,8 @@ for inbreast_xml in inbreast_xmls:
     # Get every ROI and save in rois[]
     for entry in entries:
         class_name = entry['string'][1]
+        if class_name:
+            class_name = class_name.lower()
         inbreast_classes.add(class_name)
         if class_name in chosen_classes:
             # Literal eval in order to convert string of list to actual list
@@ -100,11 +112,11 @@ for inbreast_xml in inbreast_xmls:
         dcm_prefix = Path(inbreast_xml).stem
         for filename in os.listdir(inbreast_dcm_dir):
             if re.match(dcm_prefix + '.*\.dcm', filename):
-                dcm_path = os.path.join(inbreast_dcm_dir, filename)
+                patient_dir = os.path.join(inbreast_dcm_dir, filename)
                 break
         # Extract image from DICOM in dcm_path
         # Read pixels from DICOM, convert tp 0-255 range for JPEG
-        pixel_array = pydicom.read_file(dcm_path).pixel_array.astype(np.uint8)
+        pixel_array = pydicom.read_file(patient_dir).pixel_array.astype(np.uint8)
         image = Image.fromarray(pixel_array)
         jpeg_path = os.path.join(image_out_dir, dcm_prefix + '.jpg')
         if not os.path.exists(jpeg_path):
@@ -162,17 +174,86 @@ for inbreast_xml in inbreast_xmls:
                         txt_lines.append("{} {} {} {} {}\n".format(str(class_id), *bbox))
     # If YOLO, write TXT labels accumulated for the current image
     if txt_lines and len(txt_lines) > 0:
-        with open(os.path.join(txt_out_dir, dcm_prefix + '.txt'), 'w') as f:
-            f.writelines(txt_lines)
-        # Required for YOLO
-        yaml_data = {
-            'path': os.getcwd(),
-            'train': image_out_dir,
-            'val': image_out_dir,
-            'names': chosen_classes
-        }
-        with open(yaml_out, 'w') as f:
-            yaml.dump(yaml_data, f)
+        txt_path = os.path.join(txt_out_dir, dcm_prefix + '.txt')
+        if not os.path.exists(txt_path):
+            with open(txt_path, 'w') as f:
+                f.writelines(txt_lines)
+    else:
+        raise Exception("Image without mask")
+
+# -- End of INBreast --- #
+
+# --- CBIS-DDSM --- #
+
+# dicom_info.csv tells which jpeg corresponds to which dicom originally in DDSM dataset
+# CBIS-DDSM has converted dicom to jpeg and removed the original .dcm files.
+# Creating a dictionary linking previous .dcm to current .jpg files,
+dcm_jpeg_dict = {}
+with open(os.path.join(cbis_csv, 'dicom_info.csv')) as f:
+    list_of_dict = list(DictReader(f))
+for item in list_of_dict:
+    # patient_dir
+    dcm_path = Path(item['file_path'].strip()).parent.parts[-1]
+    # patient_dir/jpeg_name.jpg
+    jpeg_path = os.path.join(*Path(item['image_path'].strip()).parts[-2:])
+    dcm_jpeg_dict[dcm_path] = jpeg_path
+
+# Load data
+# Paths start with CBIS-DDSM, make sure this is the name of the folder that contains csv and jpeg folders
+cbis_base = str(Path(cbis_path).parent)
+csv_names = [
+    'calc_case_description_train_set.csv',
+    'calc_case_description_test_set.csv',
+    'mass_case_description_test_set.csv',
+    'mass_case_description_train_set.csv'
+]
+# Dictionary with image => mask pairs
+image_mask_pairs = {}
+# Image => class
+image_class_pairs = {}
+for csv_name in csv_names:
+    with open(os.path.join(cbis_csv, csv_name)) as f:
+        list_of_dict = list(DictReader(f))
+    for item in list_of_dict:
+        # Separate parent directory for later reference to files (folder structure stuff)
+        patient_dir = Path(item['image file path'].strip()).parent.parts[-1]
+        # Skip invalid images
+        if patient_dir not in dcm_jpeg_dict:
+            continue
+        # Convert dcm name to actual jpeg name
+        jpeg_path = dcm_jpeg_dict[patient_dir]
+        if jpeg_path not in image_mask_pairs:
+            image_mask_pairs[jpeg_path] = []
+        # patient_dir is an arbitrary name pointing to the base folder for jpg files
+        patient_dir = Path(item['ROI mask file path'].strip()).parent.parts[-1]
+        if patient_dir not in dcm_jpeg_dict:
+            continue
+        mask_path = dcm_jpeg_dict[patient_dir]
+        image_mask_pairs[jpeg_path].append(mask_path)
+        # Add image class
+        #CONTINUE
+
+
+# Mask mode
+if output_choice == 'mask':
+    for item in image_mask_pairs.items():
+        shutil.copy(item[0], image_out_dir)
+        for mask_path in item[1]:
+            shutil.copy(mask_path, mask_out_dir)
+
+# YOLO mode
+if output_choice == 'yolo':
+    pass #CONTINUE
+
+# Required for YOLO
+yaml_data = {
+    'path': os.getcwd(),
+    'train': image_out_dir,
+    'val': image_out_dir,
+    'names': chosen_classes
+}
+with open(yaml_out, 'w') as f:
+    yaml.dump(yaml_data, f)
 
 
 if json_data:
