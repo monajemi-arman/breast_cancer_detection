@@ -143,9 +143,9 @@ for inbreast_xml in inbreast_xmls:
                     'date_captured': image_date
                 })
             # Add annotations with YOLO or COCO style
+            txt_lines = []  # For YOLO
             for cls in rois.keys():
                 class_id = chosen_classes.index(cls)
-                txt_lines = [] # For YOLO
                 for roi in rois[cls]:
                     if output_choice == 'coco':
                         # COCO mode
