@@ -15,6 +15,12 @@ import yaml
 from csv import DictReader
 import shutil
 
+# --- Progress --- #
+# Implemented
+# => YOLO style dataset output for INBreast and CBIS-DDSM dataset
+# Not Implemented
+# => COCO style JSON output for CBIS-DDSM
+
 # --- Parameters --- #
 # Change as necessary
 output_choice = 'yolo'  # yolo/coco/mask
@@ -37,10 +43,12 @@ yaml_out = 'dataset.yaml' # YOLO .yaml
 txt_out_dir = 'labels' # YOLO labels .txt
 # --- End of Input paths --- #
 # Classes chosen for segmentation
-chosen_classes = ['mass', 'calcification']
+chosen_classes = ['mass']
 
 # Overall Counters for ID
 image_id = 0
+# Remove boxes smaller than this amount in length of X or Y
+bbox_length_threshold = 0.005
 
 # --- End of Parameters --- #
 
@@ -59,7 +67,7 @@ if output_choice == 'coco':
     # Prepare JSON categories
     for cls in chosen_classes:
         json_data['categories'].append({
-            'id': chosen_classes.index(cls) + 1,
+            'id': chosen_classes.index(cls),
             'name': cls
         })
 if output_choice == 'yolo':
@@ -209,9 +217,22 @@ csv_names = [
 ]
 # Dictionary with image => mask pairs
 image_mask_pairs = {}
-# Image => class
-image_class_pairs = {}
+# Mask path => class id
+mask_class_pairs = {}
 for csv_name in csv_names:
+    # Get class_name
+    if csv_name[:4].lower() == 'calc':
+        class_name = 'calcification'
+    elif csv_name[:4].lower() == 'mass':
+        class_name = 'mass'
+    else:
+        raise Exception('Unexpected class name. CSV file prefixes for CBIS-DDSM should only start with calc or mass!')
+
+    # Skip if class is not desired
+    if class_name not in chosen_classes:
+        continue
+
+    # Load CSV data
     with open(os.path.join(cbis_csv, csv_name)) as f:
         list_of_dict = list(DictReader(f))
     for item in list_of_dict:
@@ -230,11 +251,12 @@ for csv_name in csv_names:
             continue
         mask_path = dcm_jpeg_dict[patient_dir]
         image_mask_pairs[jpeg_path].append(mask_path)
-        # Add image class
-        #CONTINUE
+        # Add mask class
+        mask_class_pairs[mask_path] = chosen_classes.index(class_name)
 
 
 # Mask mode
+# Bug: Multi class not implemented (NOT_IMPLEMENTED)
 if output_choice == 'mask':
     for item in image_mask_pairs.items():
         shutil.copy(item[0], image_out_dir)
@@ -242,8 +264,40 @@ if output_choice == 'mask':
             shutil.copy(mask_path, mask_out_dir)
 
 # YOLO mode
+image_id = 0
 if output_choice == 'yolo':
-    pass #CONTINUE
+    for image_path in image_mask_pairs.keys():
+        image_id += 1 # Used only for output name
+        output_name = "cb_" + str(image_id)
+        txt_lines = []
+        for mask_path in image_mask_pairs[image_path]:
+            # Read gray mask
+            mask = cv2.imread(os.path.join(cbis_jpeg, mask_path), cv2.IMREAD_GRAYSCALE)
+            # Apply threshold to mask pixels
+            _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+            # Get contours for label text files
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Each element in contours list is a polygon (supposedly)
+            for contour in contours:
+                contour = np.array(contour).reshape(-1, 2) # Fix shape for later use
+                x_s = contour[:, 0]
+                y_s = contour[:, 1]
+                # Relative Xs and Ys
+                x_s, y_s = x_s / mask.shape[0], y_s / mask.shape[1]
+                # BBOX in YOLO: X-Center Y-Center Width Height
+                bbox = x_s.mean(), y_s.mean(), x_s.max() - x_s.min(), y_s.max() - y_s.min()
+                if bbox[2] >= bbox_length_threshold and bbox[3] >= bbox_length_threshold:
+                    bbox = [str(x) for x in bbox]
+                    # Get class id
+                    class_id = mask_class_pairs[mask_path]
+                    txt_lines.append("{} {} {} {} {}\n".format(str(class_id), *bbox))
+        # Write label txt file for current image
+        # Skip image if txt_lines wasn't filled
+        if len(txt_lines) > 0:
+            with open(os.path.join(txt_out_dir, output_name + ".txt"), 'w') as f:
+                f.writelines(txt_lines)
+            # Copy image to output dir
+            shutil.copy(os.path.join(cbis_jpeg, image_path), os.path.join(image_out_dir, output_name + ".jpg"))
 
 # Required for YOLO
 yaml_data = {
