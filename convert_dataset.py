@@ -49,7 +49,7 @@ txt_out_dir = 'labels' # YOLO labels .txt
 # --- End of Input paths --- #
 
 # Classes chosen for segmentation
-chosen_classes = ['mass']
+chosen_classes = ['mass', 'calcification']
 
 # Overall Counters for ID
 image_id = 0
