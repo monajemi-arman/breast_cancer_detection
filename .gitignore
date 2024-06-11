@@ -4,7 +4,6 @@ images/
 labels/
 masks/
 archive/
-*.yaml
 *.pt
 *.cache
 runs/
