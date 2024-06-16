@@ -14,6 +14,7 @@ import json
 import yaml
 from csv import DictReader
 import shutil
+import pandas as pd
 
 # -- How to Use --- #
 # The folder in which this script is located in must contain:
@@ -22,9 +23,10 @@ import shutil
 
 # --- Progress --- #
 # Implemented
-# => YOLO style dataset output for INBreast and CBIS-DDSM dataset
+# - YOLO style dataset output for INBreast and CBIS-DDSM dataset
+# - INBreast and CBIS-DDSM mass_low and mass_high according to Bi-Rads (<= 3 or >3)
 # Not Implemented
-# => COCO style JSON output for CBIS-DDSM
+# - COCO style JSON output for CBIS-DDSM
 
 # --- Parameters --- #
 # Change as necessary
@@ -40,6 +42,7 @@ cbis_csv = os.path.join(cbis_path, 'csv')
 inbreast_path = os.path.join('datasets', 'INbreast Release 1.0')
 inbreast_xml_dir = os.path.join(inbreast_path, 'AllXML')
 inbreast_dcm_dir = os.path.join(inbreast_path, 'AllDICOMs')
+inbreast_csv = os.path.join(inbreast_path, 'INbreast.csv')
 # Output paths
 image_out_dir = 'images' # Images
 mask_out_dir = 'masks' # Mask
@@ -58,6 +61,13 @@ bbox_length_threshold = 0.005
 
 # --- End of Parameters --- #
 
+# all_classes is a list of all class names, for later reference and assigning IDs to class names
+all_classes = []
+if 'mass' in chosen_classes:
+    all_classes.extend(['mass_low', 'mass_high'])
+if 'calcification' in chosen_classes:
+    all_classes.append('calcification')
+
 # Create output json and/or dirs
 output_choice = output_choice.lower()
 json_data = None # Prevent undefined error
@@ -71,9 +81,9 @@ if output_choice == 'coco':
         'images': []
     }
     # Prepare JSON categories
-    for cls in chosen_classes:
+    for cls in all_classes:
         json_data['categories'].append({
-            'id': chosen_classes.index(cls),
+            'id': all_classes.index(cls),
             'name': cls
         })
 if output_choice == 'yolo':
@@ -87,6 +97,14 @@ for directory in [image_out_dir, mask_out_dir, txt_out_dir]:
 
 inbreast_classes = set()
 inbreast_xmls = [str(x) for x in list(Path(inbreast_xml_dir).glob('*.xml'))]  # Load XML paths
+
+# Read CSV for malignant/benign
+inbreast_csv_data = pd.read_csv(inbreast_csv, sep=';')
+file_score_pairs = {}
+for filename, score in zip(inbreast_csv_data['File Name'], inbreast_csv_data['Bi-Rads']):
+    filename = str(filename)
+    score = re.sub(r'\D', '', score) # 4a, 4b, 4c => 4
+    file_score_pairs[filename] = score
 
 for inbreast_xml in inbreast_xmls:
     image_id += 1
@@ -128,6 +146,15 @@ for inbreast_xml in inbreast_xmls:
             if re.match(dcm_prefix + '.*\.dcm', filename):
                 patient_dir = os.path.join(inbreast_dcm_dir, filename)
                 break
+        # Identify low or high and set the full class name
+        cls_suffix = ''
+        if dcm_prefix in file_score_pairs:
+            score = file_score_pairs[dcm_prefix]
+            if score <= 3:
+                cls_suffix = '_low'
+            elif score > 3:
+                cls_suffix = '_high'
+
         # Extract image from DICOM in dcm_path
         # Read pixels from DICOM, convert tp 0-255 range for JPEG
         pixel_array = pydicom.read_file(patient_dir).pixel_array.astype(np.uint8)
@@ -139,7 +166,7 @@ for inbreast_xml in inbreast_xmls:
             # Mask mode
             mask = np.zeros(pixel_array.shape, dtype=np.uint8)
             for cls in chosen_classes:
-                mask = cv2.fillPoly(mask, rois[cls], 255 - chosen_classes.index(cls))
+                mask = cv2.fillPoly(mask, rois[cls], 255 - all_classes.index(cls + cls_suffix))
             mask = Image.fromarray(mask)
             mask.save(os.path.join(mask_out_dir, dcm_prefix + '.png'), format='PNG')
         if output_choice == 'coco' or output_choice == 'yolo':
@@ -159,7 +186,7 @@ for inbreast_xml in inbreast_xmls:
             # Add annotations with YOLO or COCO style
             txt_lines = []  # For YOLO
             for cls in rois.keys():
-                class_id = chosen_classes.index(cls)
+                class_id = all_classes.index(cls + cls_suffix)
                 for roi in rois[cls]:
                     if output_choice == 'coco':
                         # COCO mode
@@ -258,7 +285,7 @@ for csv_name in csv_names:
         mask_path = dcm_jpeg_dict[patient_dir]
         image_mask_pairs[jpeg_path].append(mask_path)
         # Add mask class
-        mask_class_pairs[mask_path] = chosen_classes.index(class_name)
+        mask_class_pairs[mask_path] = all_classes.index(class_name)
 
 
 # Mask mode
@@ -310,7 +337,7 @@ yaml_data = {
     'path': os.getcwd(),
     'train': image_out_dir,
     'val': image_out_dir,
-    'names': chosen_classes
+    'names': all_classes
 }
 with open(yaml_out, 'w') as f:
     yaml.dump(yaml_data, f)
