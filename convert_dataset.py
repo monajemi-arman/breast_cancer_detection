@@ -30,9 +30,11 @@ import pandas as pd
 
 # --- Parameters --- #
 # Change as necessary
-chosen_datasets = ['inbreast']  # Available options: 'inbreast', 'cbis-ddsm'
+chosen_datasets = ['inbreast', 'cbis-ddsm']  # Available options: 'inbreast', 'cbis-ddsm'
 # Classes chosen for segmentation
 chosen_classes = ['mass']  # Available options: 'mass', 'calcification'
+# Use Bi-Rads or not; When True, adds 'mass_low' and 'mass_high' to class names
+low_high_mode = True
 # Recommended: YOLO
 output_choice = 'yolo'  # yolo/coco/mask
 
@@ -48,11 +50,11 @@ inbreast_xml_dir = os.path.join(inbreast_path, 'AllXML')
 inbreast_dcm_dir = os.path.join(inbreast_path, 'AllDICOMs')
 inbreast_csv = os.path.join(inbreast_path, 'INbreast.csv')
 # Output paths
-image_out_dir = 'images' # Images
-mask_out_dir = 'masks' # Mask
-json_out = 'annotations.json' # COCO
-yaml_out = 'dataset.yaml' # YOLO .yaml
-txt_out_dir = 'labels' # YOLO labels .txt
+image_out_dir = 'images'  # Images
+mask_out_dir = 'masks'  # Mask
+json_out = 'annotations.json'  # COCO
+yaml_out = 'dataset.yaml'  # YOLO .yaml
+txt_out_dir = 'labels'  # YOLO labels .txt
 # --- End of Input paths --- #
 
 # Overall Counters for ID
@@ -71,7 +73,7 @@ if 'calcification' in chosen_classes:
 
 # Create output json and/or dirs
 output_choice = output_choice.lower()
-json_data = None # Prevent undefined error
+json_data = None  # Prevent undefined error
 if output_choice == 'coco':
     # Prevent unnecessary folders being created
     mask_out_dir = None
@@ -193,7 +195,7 @@ if 'inbreast' in chosen_datasets:
                     # Identify low or high and set the full class name
                     cls_suffix = ''
                     # Currently only doing low and high for mass segments
-                    if cls == 'mass' and dcm_prefix in file_score_pairs:
+                    if low_high_mode == True and cls == 'mass' and dcm_prefix in file_score_pairs:
                         score = file_score_pairs[dcm_prefix]
                         if score <= 3:
                             cls_suffix = '_low'
@@ -273,7 +275,8 @@ if 'cbis-ddsm' in chosen_datasets:
         elif csv_name[:4].lower() == 'mass':
             class_name = 'mass'
         else:
-            raise Exception('Unexpected class name. CSV file prefixes for CBIS-DDSM should only start with calc or mass!')
+            raise Exception(
+                'Unexpected class name. CSV file prefixes for CBIS-DDSM should only start with calc or mass!')
 
         # Skip if class is not desired
         if class_name not in chosen_classes:
@@ -285,6 +288,14 @@ if 'cbis-ddsm' in chosen_datasets:
         for item in list_of_dict:
             # Separate parent directory for later reference to files (folder structure stuff)
             patient_dir = Path(item['image file path'].strip()).parent.parts[-1]
+            # Only support mass for Bi-Rads for now
+            cls_suffix = ''
+            if low_high_mode == True and class_name == 'mass':
+                score = int(str(item['assessment']).strip())
+                if score <= 3:
+                    cls_suffix = '_low'
+                elif score > 3:
+                    cls_suffix = '_high'
             # Skip invalid images
             if patient_dir not in dcm_jpeg_dict:
                 continue
@@ -299,8 +310,7 @@ if 'cbis-ddsm' in chosen_datasets:
             mask_path = dcm_jpeg_dict[patient_dir]
             image_mask_pairs[jpeg_path].append(mask_path)
             # Add mask class
-            mask_class_pairs[mask_path] = all_classes.index(class_name)
-
+            mask_class_pairs[mask_path] = all_classes.index(class_name + cls_suffix)
 
     # Mask mode
     # Bug: Multi class not implemented (NOT_IMPLEMENTED)
@@ -314,7 +324,7 @@ if 'cbis-ddsm' in chosen_datasets:
     image_id = 0
     if output_choice == 'yolo':
         for image_path in image_mask_pairs.keys():
-            image_id += 1 # Used only for output name
+            image_id += 1  # Used only for output name
             output_name = "cb_" + str(image_id)
             txt_lines = []
             for mask_path in image_mask_pairs[image_path]:
@@ -326,7 +336,7 @@ if 'cbis-ddsm' in chosen_datasets:
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 # Each element in contours list is a polygon (supposedly)
                 for contour in contours:
-                    contour = np.array(contour).reshape(-1, 2) # Fix shape for later use
+                    contour = np.array(contour).reshape(-1, 2)  # Fix shape for later use
                     x_s = contour[:, 0]
                     y_s = contour[:, 1]
                     # Relative Xs and Ys
