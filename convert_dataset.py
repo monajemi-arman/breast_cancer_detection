@@ -215,6 +215,9 @@ if 'inbreast' in chosen_datasets:
                             x_s, y_s = roi[:, 0], roi[:, 1]
                             # Convert all data to simple list of simple integers
                             bbox = np.array([x_s.min(), y_s.min(), x_s.max(), y_s.max()]).tolist()
+                            # Relative coord must be lower than 1
+                            if any([x > 1 for x in bbox]):
+                                raise Exception('Bbox calculated relative coord larger than 1 for ROI: ' + roi)
                             json_data['annotations'].append({
                                 'image_id': image_id,
                                 'category_id': class_id,
@@ -227,6 +230,9 @@ if 'inbreast' in chosen_datasets:
                             x_s, y_s = roi[:, 0] / image.width, roi[:, 1] / image.height
                             # BBOX in YOLO: X-Center Y-Center Width Height
                             bbox = x_s.mean(), y_s.mean(), x_s.max() - x_s.min(), y_s.max() - y_s.min()
+                            # Relative coord must be lower than 1
+                            if any([x > 1 for x in bbox]):
+                                raise Exception('Bbox calculated relative coord larger than 1 for ROI: ' + roi)
                             bbox = [str(x) for x in bbox]
                             txt_lines.append("{} {} {} {} {}\n".format(str(class_id), *bbox))
         # If YOLO, write TXT labels accumulated for the current image
@@ -249,11 +255,13 @@ if 'cbis-ddsm' in chosen_datasets:
     with open(os.path.join(cbis_csv, 'dicom_info.csv')) as f:
         list_of_dict = list(DictReader(f))
     for item in list_of_dict:
-        # patient_dir
-        dcm_path = Path(item['file_path'].strip()).parent.parts[-1]
-        # patient_dir/jpeg_name.jpg
-        jpeg_path = os.path.join(*Path(item['image_path'].strip()).parts[-2:])
-        dcm_jpeg_dict[dcm_path] = jpeg_path
+        # Skip cropped images, accept only mammography and ROI
+        if 'crop' not in item['SeriesDescription']:
+            # patient_dir
+            dcm_path = Path(item['file_path'].strip()).parent.parts[-1]
+            # patient_dir/jpeg_name.jpg
+            jpeg_path = os.path.join(*Path(item['image_path'].strip()).parts[-2:])
+            dcm_jpeg_dict[dcm_path] = jpeg_path
 
     # Load data
     # Paths start with CBIS-DDSM, make sure this is the name of the folder that contains csv and jpeg folders
@@ -340,9 +348,11 @@ if 'cbis-ddsm' in chosen_datasets:
                     x_s = contour[:, 0]
                     y_s = contour[:, 1]
                     # Relative Xs and Ys
-                    x_s, y_s = x_s / mask.shape[0], y_s / mask.shape[1]
+                    x_s, y_s = x_s / mask.shape[1], y_s / mask.shape[0]
                     # BBOX in YOLO: X-Center Y-Center Width Height
                     bbox = x_s.mean(), y_s.mean(), x_s.max() - x_s.min(), y_s.max() - y_s.min()
+                    if any([x > 1 for x in bbox]):
+                        raise Exception('Bbox calculated relative coord larger than 1 for ROI: ' + str(contour))
                     if bbox[2] >= bbox_length_threshold and bbox[3] >= bbox_length_threshold:
                         bbox = [str(x) for x in bbox]
                         # Get class id
