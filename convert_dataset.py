@@ -23,32 +23,34 @@ import pandas as pd
 
 # --- Progress --- #
 # Implemented
-# - YOLO style dataset output for INBreast and CBIS-DDSM dataset
-# - INBreast and CBIS-DDSM mass_low and mass_high according to Bi-Rads (<= 3 or >3)
-# Not Implemented
-# - COCO style JSON output for CBIS-DDSM
+# - YOLO style dataset output for INBreast, CBIS-DDSM, and MIAS dataset
+# - Mass low and high based on Bi-Rads/Malignant or benign
+# - COCO style dataset output for INBreast
 
 # --- Parameters --- #
 # Change as necessary
-chosen_datasets = ['inbreast', 'cbis-ddsm']  # Available options: 'inbreast', 'cbis-ddsm'
+chosen_datasets = ['inbreast', 'cbis-ddsm', 'mias']  # Available options: 'inbreast', 'cbis-ddsm', 'mias'
 # Classes chosen for segmentation
 chosen_classes = ['mass']  # Available options: 'mass', 'calcification'
 # Use Bi-Rads or not; When True, adds 'mass_low' and 'mass_high' to class names
-low_high_mode = True
+low_high_mode = False
 # Recommended: YOLO
 output_choice = 'yolo'  # yolo/coco/mask
 
 # --- Input paths --- #
-# CBIS-DDSM Dataset
-cbis_path = os.path.join('datasets/CBIS-DDSM')
-cbis_jpeg = os.path.join(cbis_path, 'jpeg')
-cbis_csv = os.path.join(cbis_path, 'csv')
 # INBreast Dataset
-# Dir paths
 inbreast_path = os.path.join('datasets', 'INbreast Release 1.0')
 inbreast_xml_dir = os.path.join(inbreast_path, 'AllXML')
 inbreast_dcm_dir = os.path.join(inbreast_path, 'AllDICOMs')
 inbreast_csv = os.path.join(inbreast_path, 'INbreast.csv')
+# CBIS-DDSM Dataset
+cbis_path = os.path.join('datasets', 'CBIS-DDSM')
+cbis_jpeg = os.path.join(cbis_path, 'jpeg')
+cbis_csv = os.path.join(cbis_path, 'csv')
+# MIAS Dataset
+mias_path = os.path.join('datasets', 'all-mias')
+mias_info = os.path.join(mias_path, 'Info.txt')
+mias_chosen = { 'mass': ['CIRC', 'SPIC', 'MISC'] }
 # Output paths
 image_out_dir = 'images'  # Images
 mask_out_dir = 'masks'  # Mask
@@ -361,10 +363,62 @@ if 'cbis-ddsm' in chosen_datasets:
             # Write label txt file for current image
             # Skip image if txt_lines wasn't filled
             if len(txt_lines) > 0:
-                with open(os.path.join(txt_out_dir, output_name + ".txt"), 'w') as f:
-                    f.writelines(txt_lines)
+                output_path = os.path.join(txt_out_dir, output_name + ".txt")
+                if not os.path.exists(output_path):
+                    with open(output_path, 'w') as f:
+                        f.writelines(txt_lines)
                 # Copy image to output dir
-                shutil.copy(os.path.join(cbis_jpeg, image_path), os.path.join(image_out_dir, output_name + ".jpg"))
+                output_path = os.path.join(image_out_dir, output_name + ".jpg")
+                if not os.path.exists(output_path):
+                    shutil.copy(os.path.join(cbis_jpeg, image_path), output_path)
+# --- End of CBIS-DDSM --- #
+
+# --- MIAS --- #
+if 'mias' in chosen_datasets:
+    with open(mias_info) as f:
+        for line in f.readlines():
+            line_parts = line.split(' ')
+            # Skip irrelevant lines
+            if line[:3] != 'mdb' or len(line_parts) < 7:
+                continue
+            # Image name
+            image_name = line_parts[0]
+            # Read image
+            image = cv2.imread(os.path.join(mias_path, image_name + '.pgm'), cv2.IMREAD_GRAYSCALE)
+            # Label txt lines to be filled
+            txt_lines = []
+            for class_name in chosen_classes:
+                if line_parts[2] in mias_chosen[class_name]:
+                    # Malignant / benign
+                    cls_suffix = ''
+                    if line_parts[3] == 'M':
+                        cls_suffix = '_high'
+                    else:
+                        cls_suffix = '_low'
+                    # Calculate bounding box
+                    x_center, y_center, radius = int(line_parts[4]), int(line_parts[5]), int(line_parts[6])
+                    # To relative coord
+                    height, width = image.shape
+                    bbox = [x_center / width, y_center / height, radius / width, radius / height]
+                    if any([x > 1 for x in bbox]):
+                        raise Exception('Bbox calculated relative coord larger than 1 for ROI: ' + str(contour))
+                    # Txt line
+                    class_id = all_classes.index(class_name + cls_suffix)
+                    bbox = [str(x) for x in bbox]
+                    txt_lines.append("{} {} {} {} {}\n".format(str(class_id), *bbox))
+            # Skip images with no labels (or with non-chosen labels)
+            if len(txt_lines) > 0:
+                # Write to labels/
+                output_path = os.path.join(txt_out_dir, image_name + ".txt")
+                if not os.path.exists(output_path):
+                    with open(output_path, 'w') as f:
+                        f.writelines(txt_lines)
+                # Save to images/
+                output_path = os.path.join(image_out_dir, image_name + '.jpg')
+                if not os.path.exists(output_path):
+                    cv2.imwrite(output_path, image)
+
+# --- End of MIAS --- #
 
 # Required for YOLO
 yaml_data = {
