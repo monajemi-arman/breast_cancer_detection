@@ -69,7 +69,10 @@ bbox_length_threshold = 0.005
 # all_classes is a list of all class names, for later reference and assigning IDs to class names
 all_classes = []
 if 'mass' in chosen_classes:
-    all_classes.extend(['mass_low', 'mass_high'])
+    if low_high_mode == True:
+        all_classes.extend(['mass_low', 'mass_high'])
+    else:
+        all_classes.append('mass')
 if 'calcification' in chosen_classes:
     all_classes.append('calcification')
 
@@ -157,12 +160,13 @@ if 'inbreast' in chosen_datasets:
                 raise Exception('The following DICOM file was not found in the directory: ' + dcm_prefix)
             # Identify low or high and set the full class name
             cls_suffix = ''
-            if dcm_prefix in file_score_pairs:
-                score = file_score_pairs[dcm_prefix]
-                if score <= 3:
-                    cls_suffix = '_low'
-                elif score > 3:
-                    cls_suffix = '_high'
+            if low_high_mode:
+                if dcm_prefix in file_score_pairs:
+                    score = file_score_pairs[dcm_prefix]
+                    if score <= 3:
+                        cls_suffix = '_low'
+                    elif score > 3:
+                        cls_suffix = '_high'
             # Extract image from DICOM in dcm_path
             # Read pixels from DICOM, convert tp 0-255 range for JPEG
             pixel_array = pydicom.read_file(patient_dir).pixel_array.astype(np.uint8)
@@ -197,12 +201,14 @@ if 'inbreast' in chosen_datasets:
                     # Identify low or high and set the full class name
                     cls_suffix = ''
                     # Currently only doing low and high for mass segments
-                    if low_high_mode == True and cls == 'mass' and dcm_prefix in file_score_pairs:
-                        score = file_score_pairs[dcm_prefix]
-                        if score <= 3:
-                            cls_suffix = '_low'
-                        elif score > 3:
-                            cls_suffix = '_high'
+                    if low_high_mode == True:
+                        if cls == 'mass':
+                            if dcm_prefix in file_score_pairs:
+                                score = file_score_pairs[dcm_prefix]
+                                if score <= 3:
+                                    cls_suffix = '_low'
+                                elif score > 3:
+                                    cls_suffix = '_high'
                     class_id = all_classes.index(cls + cls_suffix)
                     # Go through each ROI in the iamge
                     for roi in rois[cls]:
@@ -300,12 +306,13 @@ if 'cbis-ddsm' in chosen_datasets:
             patient_dir = Path(item['image file path'].strip()).parent.parts[-1]
             # Only support mass for Bi-Rads for now
             cls_suffix = ''
-            if low_high_mode == True and class_name == 'mass':
+            if low_high_mode == True:
                 score = int(str(item['assessment']).strip())
-                if score <= 3:
-                    cls_suffix = '_low'
-                elif score > 3:
-                    cls_suffix = '_high'
+                if class_name == 'mass':
+                    if score <= 3:
+                        cls_suffix = '_low'
+                    elif score > 3:
+                        cls_suffix = '_high'
             # Skip invalid images
             if patient_dir not in dcm_jpeg_dict:
                 continue
@@ -391,10 +398,11 @@ if 'mias' in chosen_datasets:
                 if line_parts[2] in mias_chosen[class_name]:
                     # Malignant / benign
                     cls_suffix = ''
-                    if line_parts[3] == 'M':
-                        cls_suffix = '_high'
-                    else:
-                        cls_suffix = '_low'
+                    if low_high_mode:
+                        if line_parts[3] == 'M':
+                            cls_suffix = '_high'
+                        else:
+                            cls_suffix = '_low'
                     # Calculate bounding box
                     x_center, y_center, radius = int(line_parts[4]), int(line_parts[5]), int(line_parts[6])
                     # To relative coord
