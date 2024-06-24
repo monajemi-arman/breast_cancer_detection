@@ -34,8 +34,6 @@ chosen_datasets = ['inbreast', 'cbis-ddsm', 'mias']  # Available options: 'inbre
 chosen_classes = ['mass']  # Available options: 'mass', 'calcification'
 # Use Bi-Rads or not; When True, adds 'mass_low' and 'mass_high' to class names
 low_high_mode = False
-# Recommended: YOLO
-output_choice = 'yolo'  # yolo/coco/mask
 
 # --- Input paths --- #
 # INBreast Dataset
@@ -50,7 +48,7 @@ cbis_csv = os.path.join(cbis_path, 'csv')
 # MIAS Dataset
 mias_path = os.path.join('datasets', 'all-mias')
 mias_info = os.path.join(mias_path, 'Info.txt')
-mias_chosen = { 'mass': ['CIRC', 'SPIC', 'MISC'] }
+mias_chosen = {'mass': ['CIRC', 'SPIC', 'MISC']}
 # Output paths
 image_out_dir = 'images'  # Images
 mask_out_dir = 'masks'  # Mask
@@ -59,12 +57,82 @@ yaml_out = 'dataset.yaml'  # YOLO .yaml
 txt_out_dir = 'labels'  # YOLO labels .txt
 # --- End of Input paths --- #
 
+# Recommended: YOLO
+# Hacky point: YOLO mode now generates annotations.json for COCO style as well
+output_choice = 'yolo'  # yolo/coco/mask
 # Overall Counters for ID
 image_id = 0
 # Remove boxes smaller than this amount in length of X or Y
 bbox_length_threshold = 0.005
 
+
 # --- End of Parameters --- #
+
+# YOLO to JSON Conversion
+def yolo_to_coco(yolo_annotations, image_dir, output_file):
+    coco_annotations = {
+        "images": [],
+        "annotations": [],
+        "categories": []
+    }
+
+    categories = set()
+    annotation_id = 1
+
+    for label_file in os.listdir(yolo_annotations):
+        if not label_file.endswith(".txt"):
+            continue
+
+        image_file = os.path.splitext(label_file)[0] + ".jpg"
+        image_path = os.path.join(image_dir, image_file)
+
+        image = Image.open(image_path)
+        width, height = image.size
+
+        image_id = len(coco_annotations["images"]) + 1
+        coco_annotations["images"].append({
+            "id": image_id,
+            "file_name": image_file,
+            "width": width,
+            "height": height
+        })
+
+        with open(os.path.join(yolo_annotations, label_file)) as f:
+            for line in f:
+                parts = line.strip().split()
+                category_id = int(parts[0]) + 1  # COCO category ids start at 1
+                categories.add(category_id)
+                bbox = [float(x) for x in parts[1:]]
+                bbox[0] *= width
+                bbox[1] *= height
+                bbox[2] *= width
+                bbox[3] *= height
+                # X/Y center to X1/Y1 and X2/Y2
+                bbox[0] -= bbox[2]
+                bbox[1] -= bbox[3]
+                bbox[2] += bbox[0]
+                bbox[3] += bbox[1]
+
+                coco_annotations["annotations"].append({
+                    "id": annotation_id,
+                    "image_id": image_id,
+                    "category_id": category_id,
+                    "bbox": bbox,
+                    "area": bbox[2] * bbox[3],
+                    "iscrowd": 0
+                })
+                annotation_id += 1
+
+    categories = list(categories)
+    for category_id in range(1, len(categories) + 1):
+        coco_annotations["categories"].append({
+            "id": category_id,
+            "name": str(category_id)
+        })
+
+    with open(output_file, "w") as f:
+        json.dump(coco_annotations, f, indent=4)
+
 
 # all_classes is a list of all class names, for later reference and assigning IDs to class names
 all_classes = []
@@ -441,3 +509,7 @@ with open(yaml_out, 'w') as f:
 if json_data:
     with open(json_out, 'w') as f:
         json.dump(json_data, f)
+
+# Create COCO annotations.json regardless of output style choice (yolo/coco)
+if output_choice in ['yolo', 'coco']:
+    yolo_to_coco(txt_out_dir, image_out_dir, json_out)
