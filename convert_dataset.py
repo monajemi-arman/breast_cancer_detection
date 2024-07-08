@@ -102,10 +102,10 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
         image = Image.open(image_path)
         width, height = image.size
 
-        image_id = len(coco_annotations["images"]) + 1
+        image_id = len(coco_annotations["images"])
         coco_annotations["images"].append({
             "id": image_id,
-            "file_name": image_file,
+            "file_name": image_path,
             "width": width,
             "height": height
         })
