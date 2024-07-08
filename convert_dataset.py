@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # Convert dataset DICOM and XML to images and masks directory
 import os
+import random
 import time
 import re
 from pathlib import Path
@@ -36,6 +37,8 @@ chosen_datasets = ['inbreast', 'cbis-ddsm', 'mias']  # Available options: 'inbre
 chosen_classes = ['mass']  # Available options: 'mass', 'calcification'
 # Use Bi-Rads or not; When True, adds 'mass_low' and 'mass_high' to class names
 low_high_mode = False
+# Train / Validation / Test split ratio
+split_ratio = [0.8, 0.1, 0.1]
 
 # --- Input paths --- #
 # INBreast Dataset
@@ -54,10 +57,14 @@ mias_chosen = {'mass': ['CIRC', 'SPIC', 'MISC']}
 # Output paths
 image_out_dir = 'images'  # Images
 mask_out_dir = 'masks'  # Mask
-json_out = 'annotations.json'  # COCO
 yaml_out = 'dataset.yaml'  # YOLO .yaml
 txt_out_dir = 'labels'  # YOLO labels .txt
+split_dirs = ['train', 'val', 'test']
 # --- End of Input paths --- #
+
+# --- Deprecated code --- #
+# json_data is deprecated variable, but code is still not removed. It doesn't interfere with the program.
+# --- --- #
 
 # Recommended: YOLO
 # Hacky point: YOLO mode now generates annotations.json for COCO style as well
@@ -505,20 +512,54 @@ if 'mias' in chosen_datasets:
 
 # --- End of MIAS --- #
 
+# Train / Val / Test split
+for directory1 in split_dirs:
+    if not os.path.exists(directory1):
+        os.mkdir(directory1)
+    for directory2 in [image_out_dir, txt_out_dir]:
+        directory = os.path.join(directory1, directory2)
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+file_prefixes = [Path(x).stem for x in os.listdir(txt_out_dir)]
+random.shuffle(file_prefixes)
+i = 0
+for file_prefix in file_prefixes:
+    i += 1
+    # Choose destination
+    ratio = i / len(file_prefixes)
+    if ratio <= split_ratio[0]:
+        dest_id = 0  # train
+    elif ratio <= split_ratio[0] + split_ratio[1]:
+        dest_id = 1  # val
+    elif ratio <= split_ratio[0] + split_ratio[1] + split_ratio[2]:
+        dest_id = 2  # test
+    else:
+        dest = 'train'
+    # Move
+    dest = os.path.join(split_dirs[dest_id], image_out_dir, file_prefix + '.jpg')
+    if not os.path.exists(dest):
+        shutil.move(os.path.join(image_out_dir, file_prefix + '.jpg'), dest)
+    dest = os.path.join(split_dirs[dest_id], txt_out_dir, file_prefix + '.txt')
+    if not os.path.exists(dest):
+        shutil.move(os.path.join(txt_out_dir, file_prefix + '.txt'), dest)
+
+# Create COCO annotations.json regardless of output style choice (yolo/coco)
+if output_choice in ['yolo', 'coco']:
+    for directory in split_dirs:
+        yolo_to_coco(os.path.join(directory, txt_out_dir), os.path.join(directory, image_out_dir), directory + '.json')
+
 # Required for YOLO
 yaml_data = {
     'path': os.getcwd(),
-    'train': image_out_dir,
-    'val': image_out_dir,
+    'train': os.path.join(split_dirs[0], image_out_dir),
+    'val': os.path.join(split_dirs[1], image_out_dir),
+    'test': os.path.join(split_dirs[2], image_out_dir),
     'names': all_classes
 }
 with open(yaml_out, 'w') as f:
     yaml.dump(yaml_data, f)
 
-if json_data:
-    with open(json_out, 'w') as f:
-        json.dump(json_data, f)
-
-# Create COCO annotations.json regardless of output style choice (yolo/coco)
-if output_choice in ['yolo', 'coco']:
-    yolo_to_coco(txt_out_dir, image_out_dir, json_out)
+# Clean up empty directories
+for directory in [image_out_dir, txt_out_dir]:
+    if len(os.listdir(directory)) == 0:
+        os.rmdir(directory)
