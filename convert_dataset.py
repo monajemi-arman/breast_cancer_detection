@@ -22,6 +22,8 @@ import pandas as pd
 # After running the script, images/, labels/, and dataset.yaml is created for yolo format.
 
 # --- Progress --- #
+# * To Fix *
+# - Mask mode
 # Implemented
 # - YOLO style dataset output for INBreast, CBIS-DDSM, and MIAS dataset
 # - Mass low and high based on Bi-Rads/Malignant or benign
@@ -67,6 +69,10 @@ bbox_length_threshold = 0.005
 
 
 # --- End of Parameters --- #
+
+# Lazy code, COCO mode deprecated, YOLO mode also does COCO
+if output_choice == 'coco':
+    output_choice = 'yolo'
 
 # YOLO to JSON Conversion
 def yolo_to_coco(yolo_annotations, image_dir, output_file):
@@ -168,6 +174,9 @@ if output_choice == 'yolo':
 for directory in [image_out_dir, mask_out_dir, txt_out_dir]:
     if directory and not os.path.isdir(directory):
         os.mkdir(directory)
+
+# Prevent Undefined
+txt_lines = []
 
 # --- INBreast --- #
 
@@ -312,12 +321,12 @@ if 'inbreast' in chosen_datasets:
                             bbox = [str(x) for x in bbox]
                             txt_lines.append("{} {} {} {} {}\n".format(str(class_id), *bbox))
         # If YOLO, write TXT labels accumulated for the current image
-        if txt_lines and len(txt_lines) > 0:
+        if len(txt_lines) > 0:
             txt_path = os.path.join(txt_out_dir, dcm_prefix + '.txt')
             if not os.path.exists(txt_path):
                 with open(txt_path, 'w') as f:
                     f.writelines(txt_lines)
-        else:
+        elif output_choice != 'mask':
             raise Exception("Image without mask")
 
 # -- End of INBreast --- #
@@ -374,7 +383,7 @@ if 'cbis-ddsm' in chosen_datasets:
             patient_dir = Path(item['image file path'].strip()).parent.parts[-1]
             # Only support mass for Bi-Rads for now
             cls_suffix = ''
-            if low_high_mode == True:
+            if low_high_mode:
                 score = int(str(item['assessment']).strip())
                 if class_name == 'mass':
                     if score <= 3:
