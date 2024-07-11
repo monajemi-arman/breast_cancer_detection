@@ -9,8 +9,9 @@ archive/
 runs/
 UaNet-dataset/
 models/
-annotations.json
+*.json
 dataset.yaml
+split/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
