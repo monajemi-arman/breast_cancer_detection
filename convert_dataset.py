@@ -69,17 +69,17 @@ split_dirs = ['train', 'val', 'test']
 # Recommended: YOLO
 # Hacky point: YOLO mode now generates annotations.json for COCO style as well
 output_choice = 'yolo'  # yolo/coco/mask
-# Overall Counters for ID
-image_id = 0
 # Remove boxes smaller than this amount in length of X or Y
 bbox_length_threshold = 0.005
-
 
 # --- End of Parameters --- #
 
 # Lazy code, COCO mode deprecated, YOLO mode also does COCO
 if output_choice == 'coco':
     output_choice = 'yolo'
+
+# Overall Counters for ID
+image_id = 0
 
 # YOLO to JSON Conversion
 def yolo_to_coco(yolo_annotations, image_dir, output_file):
