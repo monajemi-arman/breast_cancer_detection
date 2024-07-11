@@ -11,7 +11,7 @@
 # By default, this script outputs the following directories:
 # - UaNet-Dataset: Containing the images and masks in nifti format
 # - split: Containing the csv list of image prefixes
-# In order to use UaNet on mass lesions of mammography images, you must change the config.py so as to have:
+# In order to use UaNet on mass lesions of mammography images, you must change the config.py to have:
 # 'roi_names': ['mass']
 # Limitations #
 # Only works on single class mask images (binary)
@@ -22,6 +22,9 @@ import os
 from pathlib import Path
 import numpy as np
 
+# --- Parameters --- #
+# Target size
+target_size = [512, 512]  # Set to None if image resizing is not required
 # File and directory names
 images_dir = 'images'
 masks_dir = 'masks'
@@ -33,6 +36,8 @@ npy_name = {
     'val': 'dataset1_2_val.csv',
     'test': 'release_dataset1_test.csv'
 }
+
+# --- End of Parameters --- #
 
 # Create directories not existing already
 for directory in [output_dir, npy_name['dir']]:
@@ -49,6 +54,9 @@ for image_name in os.listdir(images_dir):
     if image_prefix in mask_prefixes:
         image_path = os.path.join(images_dir, image_name)
         image_data = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+        # Resize if necessary
+        if target_size and len(target_size) == 2:
+            image_data = cv2.resize(image_data, target_size, interpolation=cv2.INTER_AREA)
         # Fake 3D
         image_data = np.expand_dims(image_data, 0)
         image_name_nrrd = Path(image_name).stem + '_clean.nrrd'
@@ -61,9 +69,16 @@ for image_name in os.listdir(images_dir):
 for mask_name in mask_names:
     mask_path = os.path.join(masks_dir, mask_name)
     mask_data = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    # Resize if necessary
+    if target_size and len(target_size) == 2:
+        mask_data = cv2.resize(mask_data, target_size, interpolation=cv2.INTER_AREA)
+    # Apply threshold to remove random pixels
     _, mask_data = cv2.threshold(mask_data, 127, 255, cv2.THRESH_BINARY)
     mask_name_nrrd = Path(mask_name).stem + '_' + mask_suffix + '.nrrd'
     output_path = os.path.join(output_dir, mask_name_nrrd)
+    # Fake 3D
+    mask_data = np.expand_dims(mask_data, 0)
+    # Write NRRD
     if not os.path.exists(output_path):
         nrrd.write(output_path, mask_data)
 
