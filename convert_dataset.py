@@ -2,6 +2,7 @@
 # Convert dataset DICOM and XML to images and masks directory
 import os
 import random
+import sys
 import time
 import re
 from pathlib import Path
@@ -16,29 +17,34 @@ import yaml
 from csv import DictReader
 import shutil
 import pandas as pd
+import argparse
 
 # -- How to Use --- #
 # The folder in which this script is located in must contain:
-# "datasets/INbreast Release 1.0" and "datasets/CBIS-DDSM" directories containing each dataset
-# After running the script, images/, labels/, and dataset.yaml is created for yolo format.
+# "datasets/INbreast Release 1.0", "datasets/CBIS-DDSM", "datasets/all-mias"
+# After running the script, images/, labels/, and dataset.yaml is created for yolo format, json files for coco
 
-# --- Progress --- #
-# * To Fix *
-# - Mask mode
-# Implemented
-# - YOLO style dataset output for INBreast, CBIS-DDSM, and MIAS dataset
+# ** Limitations **
+# - Mask mode not supported for MIAS dataset, yet
+# - Mask mode currently does not support benign/malignant mode (low/high risk)
+# Features:
+# - YOLO and COCO style dataset output for INBreast, CBIS-DDSM, and MIAS dataset
 # - Mass low and high based on Bi-Rads/Malignant or benign
-# - COCO style dataset output for INBreast
 
 # --- Parameters --- #
 # Change as necessary
 chosen_datasets = ['inbreast', 'cbis-ddsm', 'mias']  # Available options: 'inbreast', 'cbis-ddsm', 'mias'
 # Classes chosen for segmentation
 chosen_classes = ['mass']  # Available options: 'mass', 'calcification'
+# Recommended: YOLO
+# Hacky point: YOLO mode now generates annotations.json for COCO style as well
+output_choice = 'mask'  # available modes: yolo, mask
 # Use Bi-Rads or not; When True, adds 'mass_low' and 'mass_high' to class names
 low_high_mode = False
 # Train / Validation / Test split ratio
+split_mode = True
 split_ratio = [0.8, 0.1, 0.1]
+split_not_in_mask_mode = True  # Must be set to true for to_3d_nrrd.py to work properly
 
 # --- Input paths --- #
 # INBreast Dataset
@@ -62,17 +68,28 @@ txt_out_dir = 'labels'  # YOLO labels .txt
 split_dirs = ['train', 'val', 'test']
 # --- End of Input paths --- #
 
-# --- Deprecated code --- #
-# json_data is deprecated variable, but code is still not removed. It doesn't interfere with the program.
-# --- --- #
-
-# Recommended: YOLO
-# Hacky point: YOLO mode now generates annotations.json for COCO style as well
-output_choice = 'yolo'  # yolo/coco/mask
 # Remove boxes smaller than this amount in length of X or Y
 bbox_length_threshold = 0.005
 
 # --- End of Parameters --- #
+
+# Parse command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-m', '--mode', type=str, choices=['yolo', 'mask', 'coco'],
+                    help="Output dataset style", required=False, default=output_choice)
+args = parser.parse_args()
+output_choice = args.mode
+output_choice = output_choice.lower()
+
+# Skip not implemented features
+if output_choice == 'mask':
+    # MIAS dataset does not currently support mask output
+    if 'mias' in chosen_datasets:
+        print("[!] MIAS dataset mask output is not implemented yet, skipping the dataset...", file=sys.stderr)
+        chosen_datasets.remove('mias')
+    # Mask mode train/val/test split is not desired, therefore disabled unless chosen otherwise
+    if split_not_in_mask_mode:
+        split_mode = False
 
 # Lazy code, COCO mode deprecated, YOLO mode also does COCO
 if output_choice == 'coco':
@@ -80,6 +97,7 @@ if output_choice == 'coco':
 
 # Overall Counters for ID
 image_id = 0
+
 
 # YOLO to JSON Conversion
 def yolo_to_coco(yolo_annotations, image_dir, output_file):
@@ -157,9 +175,11 @@ if 'mass' in chosen_classes:
 if 'calcification' in chosen_classes:
     all_classes.append('calcification')
 
-# Create output json and/or dirs
-output_choice = output_choice.lower()
+# ** Deprecated code **
+# json_data is deprecated variable, but code is still not removed. It doesn't interfere with the program.
 json_data = None  # Prevent undefined error
+
+# Create output json and/or dirs
 if output_choice == 'coco':
     # Prevent unnecessary folders being created
     mask_out_dir = None
@@ -264,7 +284,7 @@ if 'inbreast' in chosen_datasets:
                 for cls in chosen_classes:
                     mask = cv2.fillPoly(mask, rois[cls], 255 - all_classes.index(cls + cls_suffix))
                 mask = Image.fromarray(mask)
-                mask.save(os.path.join(mask_out_dir, dcm_prefix + '.png'), format='PNG')
+                mask.save(os.path.join(mask_out_dir, dcm_prefix + '.jpg'), format='JPEG')
             if output_choice == 'coco' or output_choice == 'yolo':
                 if output_choice == 'coco':
                     # Get image creation date
@@ -415,11 +435,17 @@ if 'cbis-ddsm' in chosen_datasets:
 
     # Mask mode
     # Bug: Multi class not implemented (NOT_IMPLEMENTED)
+    image_id = 0
     if output_choice == 'mask':
         for item in image_mask_pairs.items():
-            shutil.copy(item[0], image_out_dir)
-            for mask_path in item[1]:
-                shutil.copy(mask_path, mask_out_dir)
+            image_id += 1
+            image_name = 'cbm_' + str(image_id) + '.jpg'
+            shutil.copy(os.path.join(cbis_jpeg, item[0]), os.path.join(image_out_dir, image_name))
+            if len(item[1]) == 1:
+                mask_path = item[1][0]
+                shutil.copy(os.path.join(cbis_jpeg, mask_path), os.path.join(mask_out_dir, image_name))
+            elif len(item[1]) > 1:
+                raise NotImplementedError
 
     # YOLO mode
     image_id = 0
@@ -513,53 +539,63 @@ if 'mias' in chosen_datasets:
 # --- End of MIAS --- #
 
 # Train / Val / Test split
-for directory1 in split_dirs:
-    if not os.path.exists(directory1):
-        os.mkdir(directory1)
-    for directory2 in [image_out_dir, txt_out_dir]:
-        directory = os.path.join(directory1, directory2)
-        if not os.path.exists(directory):
-            os.mkdir(directory)
-file_prefixes = [Path(x).stem for x in os.listdir(txt_out_dir)]
-random.shuffle(file_prefixes)
-i = 0
-for file_prefix in file_prefixes:
-    i += 1
-    # Choose destination
-    ratio = i / len(file_prefixes)
-    if ratio <= split_ratio[0]:
-        dest_id = 0  # train
-    elif ratio <= split_ratio[0] + split_ratio[1]:
-        dest_id = 1  # val
-    elif ratio <= split_ratio[0] + split_ratio[1] + split_ratio[2]:
-        dest_id = 2  # test
-    else:
-        dest = 'train'
-    # Move
-    dest = os.path.join(split_dirs[dest_id], image_out_dir, file_prefix + '.jpg')
-    if not os.path.exists(dest):
-        shutil.move(os.path.join(image_out_dir, file_prefix + '.jpg'), dest)
-    dest = os.path.join(split_dirs[dest_id], txt_out_dir, file_prefix + '.txt')
-    if not os.path.exists(dest):
-        shutil.move(os.path.join(txt_out_dir, file_prefix + '.txt'), dest)
+if split_mode:
+    out_dir = txt_out_dir
+    file_suffix = '.txt'
+    if output_choice == 'mask':
+        out_dir = 'masks'
+        file_suffix = '.jpg'
+    warning_said = False
+    for directory1 in split_dirs:
+        if os.path.exists(directory1) and not warning_said:
+            print("Train/Val/Test directories exist! You must remove these directories before running the program.\n" + \
+                  "Otherwise this may cause random extra images in these directories.", file=sys.stderr)
+            warning_said = True
+        else:
+            os.mkdir(directory1)
+        for directory2 in [image_out_dir, out_dir]:
+            directory = os.path.join(directory1, directory2)
+            if not os.path.exists(directory):
+                os.mkdir(directory)
+    file_prefixes = [Path(x).stem for x in os.listdir(out_dir)]
+    random.shuffle(file_prefixes)
+    i = 0
+    for file_prefix in file_prefixes:
+        i += 1
+        # Choose destination
+        ratio = i / len(file_prefixes)
+        if ratio <= split_ratio[0]:
+            dest_id = 0  # train
+        elif ratio <= split_ratio[0] + split_ratio[1]:
+            dest_id = 1  # val
+        elif ratio <= split_ratio[0] + split_ratio[1] + split_ratio[2]:
+            dest_id = 2  # test
+        else:
+            dest = 'train'
+        # Move
+        dest = os.path.join(split_dirs[dest_id], image_out_dir, file_prefix + '.jpg')
+        if not os.path.exists(dest):
+            shutil.move(os.path.join(image_out_dir, file_prefix + '.jpg'), dest)
+        dest = os.path.join(split_dirs[dest_id], out_dir, file_prefix + file_suffix)
+        if not os.path.exists(dest):
+            shutil.move(os.path.join(out_dir, file_prefix + file_suffix), dest)
 
-# Create COCO annotations.json regardless of output style choice (yolo/coco)
-if output_choice in ['yolo', 'coco']:
-    for directory in split_dirs:
-        yolo_to_coco(os.path.join(directory, txt_out_dir), os.path.join(directory, image_out_dir), directory + '.json')
+    # Create COCO annotations json regardless of output style choice (yolo/coco)
+    if output_choice == 'yolo':
+        for directory in split_dirs:
+            yolo_to_coco(os.path.join(directory, txt_out_dir), os.path.join(directory, image_out_dir), directory + '.json')
+        # Required for YOLO
+        yaml_data = {
+            'path': os.getcwd(),
+            'train': os.path.join(split_dirs[0], image_out_dir),
+            'val': os.path.join(split_dirs[1], image_out_dir),
+            'test': os.path.join(split_dirs[2], image_out_dir),
+            'names': all_classes
+        }
+        with open(yaml_out, 'w') as f:
+            yaml.dump(yaml_data, f)
 
-# Required for YOLO
-yaml_data = {
-    'path': os.getcwd(),
-    'train': os.path.join(split_dirs[0], image_out_dir),
-    'val': os.path.join(split_dirs[1], image_out_dir),
-    'test': os.path.join(split_dirs[2], image_out_dir),
-    'names': all_classes
-}
-with open(yaml_out, 'w') as f:
-    yaml.dump(yaml_data, f)
-
-# Clean up empty directories
-for directory in [image_out_dir, txt_out_dir]:
-    if len(os.listdir(directory)) == 0:
-        os.rmdir(directory)
+    # Clean up empty directories
+    for directory in [image_out_dir, out_dir]:
+        if len(os.listdir(directory)) == 0:
+            os.rmdir(directory)
