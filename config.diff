@@ -1,5 +1,5 @@
---- config2.py	2024-07-12 16:33:47.693018471 +0330
-+++ config.py	2024-07-12 01:25:56.365126713 +0330
+--- config.py	2024-07-13 12:59:49.218792720 +0330
++++ /home/john/prj/breast_cancer_detection/models/UaNet/src/config.py	2024-07-13 12:58:09.978435995 +0330
 @@ -36,10 +36,7 @@
      'data_dir': '../data/raw',
      'preprocessed_data_dir': '../data/preprocessed',
@@ -40,3 +40,21 @@
      'do_postprocess': False,
  }
  
+@@ -146,7 +143,7 @@
+ 
+ train_config = {
+     'net': 'UaNet',
+-    'batch_size': 1,
++    'batch_size': 4,
+ 
+     'lr_schedule': lr_shedule,
+     'optimizer': 'Adam',
+@@ -154,7 +151,7 @@
+     'weight_decay': 1e-4,
+ 
+     # total # of epochs
+-    'epochs': 200,
++    'epochs': 100,
+ 
+     # save check point (model weights) every epoch_save epochs
+     'epoch_save': 1,
