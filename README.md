@@ -71,7 +71,7 @@ git clone https://github.com/uci-cbcl/UaNet
 ```bash
 cd UaNet
 # Check the path to breast_cancer_detection directory to be correct
-patch ../breast_cancer_detection/custom-config.diff src/config.ph
+patch ../breast_cancer_detection/custom-config.diff src/config.py
 ```
 * Prepare dataset
 ```bash
