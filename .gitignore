@@ -13,8 +13,6 @@ models/
 dataset.yaml
 split/
 *.bak
-images.bak/
-masks.bak/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
