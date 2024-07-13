@@ -38,7 +38,7 @@ chosen_datasets = ['inbreast', 'cbis-ddsm', 'mias']  # Available options: 'inbre
 chosen_classes = ['mass']  # Available options: 'mass', 'calcification'
 # Recommended: YOLO
 # Hacky point: YOLO mode now generates annotations.json for COCO style as well
-output_choice = 'mask'  # available modes: yolo, mask
+output_choice = 'yolo'  # available modes: yolo, mask
 # Use Bi-Rads or not; When True, adds 'mass_low' and 'mass_high' to class names
 low_high_mode = False
 # Train / Validation / Test split ratio
