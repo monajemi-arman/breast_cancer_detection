@@ -1,11 +1,10 @@
---- train.py	2024-07-13 12:59:49.218792720 +0330
-+++ /home/john/prj/breast_cancer_detection/models/UaNet/src/train.py	2024-07-13 12:57:07.733612593 +0330
-@@ -223,7 +223,7 @@
+--- /home/john/tmp/UaNet/src/train.py	2024-07-13 12:59:49.218792720 +0330
++++ models/UaNet/src/train.py	2024-07-13 19:25:15.986326787 +0330
+@@ -223,6 +223,7 @@
  
          torch.cuda.empty_cache()
  
--    rpn_stats = np.asarray(rpn_stats, np.float32)
-+    rpn_stats = np.asarray(rpn_stats.cpu(), np.float32)
++    torch.tensor(rpn_stats, dtype=torch.float32).cpu()
+     rpn_stats = np.asarray(rpn_stats, np.float32)
      
      print('Train Epoch %d, iter %d, total time %f, loss %f' % (epoch, j, time.time() - s, np.average(total_loss)))
-     print('rpn_cls %f, rpn_reg %f, rcnn_cls %f, rcnn_reg %f, mask_loss %f' % \
