@@ -441,11 +441,21 @@ if 'cbis-ddsm' in chosen_datasets:
             image_id += 1
             image_name = 'cbm_' + str(image_id) + '.jpg'
             shutil.copy(os.path.join(cbis_jpeg, item[0]), os.path.join(image_out_dir, image_name))
+            mask_out_path = os.path.join(mask_out_dir, image_name)
             if len(item[1]) == 1:
                 mask_path = item[1][0]
-                shutil.copy(os.path.join(cbis_jpeg, mask_path), os.path.join(mask_out_dir, image_name))
+                shutil.copy(os.path.join(cbis_jpeg, mask_path), mask_out_path)
             elif len(item[1]) > 1:
-                raise NotImplementedError
+                masked = None
+                for i in range(len(item[1])):
+                    if i < (len(item[1]) - 1):
+                        img1_path = os.path.join(cbis_jpeg, item[1][i])
+                        img2_path = os.path.join(cbis_jpeg, item[1][i + 1])
+                        img1 = Image.open(img1_path)
+                        img2 = Image.open(img2_path)
+                        img1.paste(img2, (0, 0), mask=img2)
+                        masked = img1
+                masked.save(mask_out_path)
 
     # YOLO mode
     image_id = 0
