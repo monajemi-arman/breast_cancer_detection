@@ -83,6 +83,15 @@ output_choice = output_choice.lower()
 
 # Skip not implemented features
 if output_choice == 'mask':
+    # Faulty masks are made due to wrong names
+    if os.exists(image_out_dir):
+        print("Directory 'images' must be removed before running this program in mask mode!")
+        choice = input("Should images/ directory be removed? (Y/n)").lower()
+        if choice == 'y':
+            shutil.rmtree(image_out_dir)
+        else:
+            raise Exception("Cannot continue with images/ existing!")
+
     # MIAS dataset does not currently support mask output
     if 'mias' in chosen_datasets:
         print("[!] MIAS dataset mask output is not implemented yet, skipping the dataset...", file=sys.stderr)
@@ -115,7 +124,7 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
             continue
 
         image_file = os.path.splitext(label_file)[0] + ".jpg"
-        image_path = image_file
+        image_path = os.path.join(image_dir, image_file)
 
         image = Image.open(image_path)
         width, height = image.size
@@ -123,7 +132,7 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
         image_id = len(coco_annotations["images"])
         coco_annotations["images"].append({
             "id": image_id,
-            "file_name": image_path,
+            "file_name": image_file,
             "width": width,
             "height": height
         })
