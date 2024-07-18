@@ -115,7 +115,7 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
             continue
 
         image_file = os.path.splitext(label_file)[0] + ".jpg"
-        image_path = os.path.join(image_dir, image_file)
+        image_path = image_file
 
         image = Image.open(image_path)
         width, height = image.size
