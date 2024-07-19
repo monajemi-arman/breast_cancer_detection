@@ -32,6 +32,10 @@ yaml_config = "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"
 weights_path = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"
 # --- End of Parameters #
 
+choice = None
+while choice not in ['train', 'evaluate', 'predict']:
+    choice = input("Enter mode (train | evaluate | predict): ").lower()
+
 device = 'cpu'
 if torch.cuda.is_available():
     device = "cuda"
@@ -74,6 +78,7 @@ cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(MetadataCatalog.get("train").thing_classes
 # ./output
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
+if choice == 'train':
 # Training
 trainer = DefaultTrainer(cfg)
 if pretrained:
