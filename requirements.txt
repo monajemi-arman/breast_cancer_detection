@@ -6,4 +6,4 @@ pandas
 numpy
 SimpleITK
 scikit-image
-python-patch
+unidiff
