@@ -65,18 +65,23 @@ yolo predict model=runs/detect/train/weights/best.pt source=images/cb_1.jpg conf
 ## Training
 * Clone UaNet repository
 ```bash
+# Make sure you cd to breast_cancer_detection first
+# cd breast_cancer_detection
 git clone https://github.com/uci-cbcl/UaNet
 ```
 * Apply patch
 ```bash
-cd UaNet
-# Check the path to breast_cancer_detection directory to be correct
-patch ../breast_cancer_detection/config.diff src/config.py
-patch ../breast_cancer_detection/train.diff src/train.py
+# Linux
+patch patches/config.diff UaNet/src/config.py
+patch patches/train.diff UaNet/src/train.py
+# Windows
+# patch python module is in requirements.txt
+# if not installed yet, do `pip install patch`
+python -m patch patches/config.diff
+python -m patch patches/train.diff
 ```
 * Prepare dataset
 ```bash
-cd ../breast_cancer_detection
 # Convert datasets to images/ masks/
 python convert_dataset.py -m mask
 # Convert to 3D NRRD files
@@ -85,13 +90,13 @@ python to_3d_nrrd.py
 * Move dataset to model directory
 ```bash
 # While in breast_cancer_detection directory
-mv UaNet-dataset/* ../UaNet/data/preprocessed/
+mv UaNet-dataset/* UaNet/data/preprocessed/
 # Remove old default configs of UaNet
-rm ../UaNet/src/split/*
-mv split/* ../UaNet/src/split/
+rm UaNet/src/split/*
+mv split/* UaNet/src/split/
 ```
 * Start training
 ```bash
-cd ../UaNet/src
+cd UaNet/src
 python train.py
 ```
