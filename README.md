@@ -61,6 +61,18 @@ Example of prediction using YOLO ultralytics framework:
 yolo predict model=runs/detect/train/weights/best.pt source=images/cb_1.jpg conf=0.1 
 ```
 ---
+# Faster R-CNN (Using Detectron2)
+* **Install prerequisites**
+```bash
+pip install detectron2
+```
+## Train
+The purpose of detectron.py is to train and evaluate a Faster R-CNN model using detectron2 platform.
+```bash
+python detectron.py
+```
+
+---
 # UaNet
 ## Training
 * Clone UaNet repository
