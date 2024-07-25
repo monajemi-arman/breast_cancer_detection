@@ -21,7 +21,7 @@ from detectron2.data.datasets.coco import load_coco_json
 
 # --- Parameters --- #
 # Trainer
-epochs = 1
+epochs = 100
 batch_size = 4
 num_workers = 4
 pretrained = False
