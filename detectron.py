@@ -79,9 +79,9 @@ cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(MetadataCatalog.get("train").thing_classes
 os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
 if choice == 'train':
-# Training
-trainer = DefaultTrainer(cfg)
-if pretrained:
-    trainer.resume_or_load(resume=False)
-else:
-    trainer.train()
+    # Training
+    trainer = DefaultTrainer(cfg)
+    if pretrained:
+        trainer.resume_or_load(resume=False)
+    else:
+        trainer.train()
