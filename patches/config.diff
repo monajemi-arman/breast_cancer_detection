@@ -1,5 +1,5 @@
---- config.py	2024-07-13 12:59:49.218792720 +0330
-+++ /home/john/prj/breast_cancer_detection/models/UaNet/src/config.py	2024-07-13 12:58:09.978435995 +0330
+--- UaNet/src/config.py	2024-07-13 12:59:49.218792720 +0330
++++ UaNet/src/config.py	2024-07-13 12:58:09.978435995 +0330
 @@ -36,10 +36,7 @@
      'data_dir': '../data/raw',
      'preprocessed_data_dir': '../data/preprocessed',

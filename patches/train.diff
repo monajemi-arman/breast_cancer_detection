@@ -1,5 +1,5 @@
---- /home/john/tmp/UaNet/src/train.py	2024-07-13 12:59:49.218792720 +0330
-+++ models/UaNet/src/train.py	2024-07-14 10:34:41.505755975 +0330
+--- UaNet/src/train.py	2024-07-13 12:59:49.218792720 +0330
++++ UaNet/src/train.py	2024-07-14 10:34:41.505755975 +0330
 @@ -223,6 +223,7 @@
  
          torch.cuda.empty_cache()
