@@ -1,0 +1,493 @@
+--- ./UaNet/src/net/model.py	2024-07-13 12:59:49.218792720 +0330
++++ ./UaNet/src/net/model.py	2024-07-29 13:30:04.574728020 +0330
+@@ -1,7 +1,6 @@
+ import sys
+ 
+ from .layer import *
+-
+ from config import net_config as config
+ import copy
+ from torch.nn.parallel.data_parallel import data_parallel
+@@ -11,24 +10,96 @@
+ from torch.nn.parallel import data_parallel
+ import random
+ from scipy.stats import norm
+-
++import torch.nn as nn
+ 
+ bn_momentum = 0.1
+ affine = True
+ 
++
++# Custom classes for using fake 3D image data
++class Custom2d(nn.Module):
++    def __init__(self):
++        super().__init__()
++        self.conv = None
++
++    def forward(self, x):
++        # Find the fake 3d dimension
++        fake_index = None
++        if x.shape[2] == 1:
++            fake_index = 2
++        elif x.shape[1] == 1:
++            fake_index = 1
++
++        if fake_index:
++            x = x.squeeze(fake_index)
++        x = self.conv(x)
++        if fake_index:
++            if isinstance(x, tuple) or isinstance(x, list):
++                if len(x) == 2:
++                    if isinstance(x, tuple):
++                        x = list(x)
++                        x[0] = x[0].unsqueeze(fake_index)
++                        x = tuple(x)
++                    else:
++                        x[0] = x[0].unsqueeze(fake_index)
++            else:
++                x = x.unsqueeze(fake_index)
++        return x
++
++
++class CustomConvTranspose2d(Custom2d):
++    # Not all transpose ones use this
++    def __init__(self, in_channels, out_channels, kernel_size, stride=2, padding=0):
++        super().__init__()
++        self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding)
++
++
++class CustomConv2d(Custom2d):
++    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0):
++        super().__init__()
++        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding)
++
++
++class CustomMaxPool2d(Custom2d):
++    def __init__(self, kernel_size, stride=2, return_indices=True):
++        super().__init__()
++        self.conv = nn.MaxPool2d(kernel_size, stride=stride, return_indices=return_indices)
++
++
++# CustomBatchNorm2d(24, momentum=bn_momentum)
++class CustomBatchNorm2d(nn.Module):
++    def __init__(self, num_features, momentum=0.1):
++        super().__init__()
++        self.conv = nn.BatchNorm2d(num_features, momentum)
++
++    def forward(self, x):
++        # Find the fake 3d dimension
++        fake_index = None
++        if x.shape[2] == 1:
++            fake_index = 2
++        elif x.shape[1] == 1:
++            fake_index = 1
++        if fake_index:
++            x = x.squeeze(fake_index)
++        x = self.conv(x)
++        if fake_index:
++            x = x.unsqueeze(fake_index)
++        return x
++
++
+ class ResBlock3d(nn.Module):
+     def __init__(self, n_in, n_out, stride=1):
+         super(ResBlock3d, self).__init__()
+-        self.conv1 = nn.Conv3d(n_in, n_out, kernel_size=3, stride=stride, padding=1)
+-        self.bn1 = nn.BatchNorm3d(n_out, momentum=bn_momentum)
++        self.conv1 = CustomConv2d(n_in, n_out, kernel_size=3, stride=stride, padding=1)
++        self.bn1 = CustomBatchNorm2d(n_out, momentum=bn_momentum)
+         self.relu = nn.ReLU(inplace=True)
+-        self.conv2 = nn.Conv3d(n_out, n_out, kernel_size=3, padding=1)
+-        self.bn2 = nn.BatchNorm3d(n_out, momentum=bn_momentum)
++        self.conv2 = CustomConv2d(n_out, n_out, kernel_size=3, padding=1)
++        self.bn2 = CustomBatchNorm2d(n_out, momentum=bn_momentum)
+ 
+         if stride != 1 or n_out != n_in:
+             self.shortcut = nn.Sequential(
+-                nn.Conv3d(n_in, n_out, kernel_size=1, stride=stride),
+-                nn.BatchNorm3d(n_out, momentum=bn_momentum))
++                CustomConv2d(n_in, n_out, kernel_size=1, stride=stride),
++                CustomBatchNorm2d(n_out, momentum=bn_momentum))
+         else:
+             self.shortcut = None
+ 
+@@ -51,12 +122,12 @@
+     def __init__(self, config, in_channels, out_channels):
+         super(FeatureNet, self).__init__()
+         self.preBlock = nn.Sequential(
+-            nn.Conv3d(in_channels, 24, kernel_size = 3, padding = 1, stride=2),
+-            nn.BatchNorm3d(24, momentum=bn_momentum),
+-            nn.ReLU(inplace = True),
+-            nn.Conv3d(24, 24, kernel_size = 3, padding = 1),
+-            nn.BatchNorm3d(24, momentum=bn_momentum),
+-            nn.ReLU(inplace = True))
++            CustomConv2d(in_channels, 24, kernel_size=3, padding=1, stride=2),
++            CustomBatchNorm2d(24, momentum=bn_momentum),
++            nn.ReLU(inplace=True),
++            CustomConv2d(24, 24, kernel_size=3, padding=1),
++            CustomBatchNorm2d(24, momentum=bn_momentum),
++            nn.ReLU(inplace=True))
+ 
+         self.forw1 = nn.Sequential(
+             ResBlock3d(24, 32),
+@@ -88,25 +159,25 @@
+             ResBlock3d(out_channels, out_channels),
+             ResBlock3d(out_channels, out_channels))
+ 
+-        self.maxpool1 = nn.MaxPool3d(kernel_size=2, stride=2,
+-                                     return_indices=True)
+-        self.maxpool2 = nn.MaxPool3d(kernel_size=2, stride=2,
+-                                     return_indices=True)
+-        self.maxpool3 = nn.MaxPool3d(kernel_size=2, stride=2,
+-                                     return_indices=True)
+-        self.maxpool4 = nn.MaxPool3d(kernel_size=2, stride=2,
+-                                     return_indices=True)
++        self.maxpool1 = CustomMaxPool2d(kernel_size=2, stride=2,
++                                        return_indices=True)
++        self.maxpool2 = CustomMaxPool2d(kernel_size=2, stride=2,
++                                        return_indices=True)
++        self.maxpool3 = CustomMaxPool2d(kernel_size=2, stride=2,
++                                        return_indices=True)
++        self.maxpool4 = CustomMaxPool2d(kernel_size=2, stride=2,
++                                        return_indices=True)
+ 
+         # upsampling in U-net
+         self.path1 = nn.Sequential(
+-            nn.ConvTranspose3d(64, 64, kernel_size=2, stride=2),
+-            nn.BatchNorm3d(64),
++            CustomConvTranspose2d(64, 64, kernel_size=2, stride=2),
++            CustomBatchNorm2d(64),
+             nn.ReLU(inplace=True))
+ 
+         # upsampling in U-net
+         self.path2 = nn.Sequential(
+-            nn.ConvTranspose3d(64, 64, kernel_size=2, stride=2),
+-            nn.BatchNorm3d(64),
++            CustomConvTranspose2d(64, 64, kernel_size=2, stride=2),
++            CustomBatchNorm2d(64),
+             nn.ReLU(inplace=True))
+ 
+     def forward(self, x):
+@@ -134,13 +205,14 @@
+     1. binary classification score for each anchor box at each sliding window position
+     2. six regression terms for each anchor box at each sliding window positions
+     """
++
+     def __init__(self, config, in_channels=128):
+         super(RpnHead, self).__init__()
+         self.drop = nn.Dropout3d(p=0.5, inplace=False)
+-        self.conv = nn.Sequential(nn.Conv3d(in_channels, 64, kernel_size=1),
++        self.conv = nn.Sequential(CustomConv2d(in_channels, 64, kernel_size=1),
+                                   nn.ReLU())
+-        self.logits = nn.Conv3d(64, 1 * len(config['anchors']), kernel_size=1)
+-        self.deltas = nn.Conv3d(64, 6 * len(config['anchors']), kernel_size=1)
++        self.logits = CustomConv2d(64, 1 * len(config['anchors']), kernel_size=1)
++        self.deltas = CustomConv2d(64, 6 * len(config['anchors']), kernel_size=1)
+ 
+     def forward(self, f):
+         # out = self.drop(f)
+@@ -151,11 +223,11 @@
+         size = logits.size()
+         logits = logits.view(logits.size(0), logits.size(1), -1)
+         logits = logits.transpose(1, 2).contiguous().view(size[0], size[2], size[3], size[4], len(config['anchors']), 1)
+-        
++
+         size = deltas.size()
+         deltas = deltas.view(deltas.size(0), deltas.size(1), -1)
+         deltas = deltas.transpose(1, 2).contiguous().view(size[0], size[2], size[3], size[4], len(config['anchors']), 6)
+-        
++
+         return logits, deltas
+ 
+ 
+@@ -168,6 +240,7 @@
+     2. multi-class classification for each rpn proposals
+     3. six regression terms for each rpn proposals
+     """
++
+     def __init__(self, cfg, in_channels=128):
+         super(RcnnHead, self).__init__()
+         self.num_class = cfg['num_class']
+@@ -188,54 +261,56 @@
+ 
+         return logits, deltas
+ 
++
+ class MaskHead(nn.Module):
+     """
+     Mask head for the proposed network
+ 
+     Only upsample the region that contains ROI, up to the original image scale
+     """
++
+     def __init__(self, cfg, in_channels=128):
+         super(MaskHead, self).__init__()
+         self.num_class = cfg['num_class']
+ 
+         self.up1 = nn.Sequential(
+             nn.Upsample(scale_factor=2, mode='trilinear'),
+-            nn.Conv3d(in_channels, 64, kernel_size=3, padding=1),
++            CustomConv2d(in_channels, 64, kernel_size=3, padding=1),
+             nn.InstanceNorm3d(64, momentum=bn_momentum, affine=affine),
+-            nn.ReLU(inplace = True))
+-        
++            nn.ReLU(inplace=True))
++
+         self.up2 = nn.Sequential(
+             nn.Upsample(scale_factor=2, mode='trilinear'),
+-            nn.Conv3d(64, 64, kernel_size=3, padding=1),
++            CustomConv2d(64, 64, kernel_size=3, padding=1),
+             nn.InstanceNorm3d(64, momentum=bn_momentum, affine=affine),
+-            nn.ReLU(inplace = True))
++            nn.ReLU(inplace=True))
+ 
+         self.up3 = nn.Sequential(
+             nn.Upsample(scale_factor=2, mode='trilinear'),
+-            nn.Conv3d(64, 64, kernel_size=3, padding=1),
++            CustomConv2d(64, 64, kernel_size=3, padding=1),
+             nn.InstanceNorm3d(64, momentum=bn_momentum, affine=affine),
+-            nn.ReLU(inplace = True))
+-        
++            nn.ReLU(inplace=True))
++
+         self.back1 = nn.Sequential(
+-            nn.Conv3d(128, 64, kernel_size=3, padding=1),
++            CustomConv2d(128, 64, kernel_size=3, padding=1),
+             nn.InstanceNorm3d(64, momentum=bn_momentum, affine=affine),
+-            nn.ReLU(inplace = True))
+-        
++            nn.ReLU(inplace=True))
++
+         self.back2 = nn.Sequential(
+-            nn.Conv3d(96, 64, kernel_size=3, padding=1),
++            CustomConv2d(96, 64, kernel_size=3, padding=1),
+             nn.InstanceNorm3d(64, momentum=bn_momentum, affine=affine),
+-            nn.ReLU(inplace = True))
+-        
++            nn.ReLU(inplace=True))
++
+         self.back3 = nn.Sequential(
+-            nn.Conv3d(65, 64, kernel_size=3, padding=1),
++            CustomConv2d(65, 64, kernel_size=3, padding=1),
+             nn.InstanceNorm3d(64, momentum=bn_momentum, affine=affine),
+-            nn.ReLU(inplace = True))
++            nn.ReLU(inplace=True))
+ 
+         for i in range(self.num_class):
+-            setattr(self, 'logits' + str(i + 1), nn.Conv3d(64, 1, kernel_size=1))
++            setattr(self, 'logits' + str(i + 1), CustomConv2d(64, 1, kernel_size=1))
+ 
+     def forward(self, detections, features):
+-        img, f_2, f_4, f_8 = features  
++        img, f_2, f_4, f_8 = features
+ 
+         # Squeeze the first dimension to recover from protection on avoiding split by dataparallel      
+         img = img.squeeze(0)
+@@ -250,9 +325,11 @@
+             b, z_start, y_start, x_start, z_end, y_end, x_end, cat = detection
+ 
+             up1 = self.up1(f_8[b, :, z_start / 8:z_end / 8, y_start / 8:y_end / 8, x_start / 8:x_end / 8].unsqueeze(0))
+-            up1 = self.back1(torch.cat((up1, f_4[b, :, z_start / 4:z_end / 4, y_start / 4:y_end / 4, x_start / 4:x_end / 4].unsqueeze(0)), 1))
++            up1 = self.back1(torch.cat(
++                (up1, f_4[b, :, z_start / 4:z_end / 4, y_start / 4:y_end / 4, x_start / 4:x_end / 4].unsqueeze(0)), 1))
+             up2 = self.up2(up1)
+-            up2 = self.back2(torch.cat((up2, f_2[b, :, z_start / 2:z_end / 2, y_start / 2:y_end / 2, x_start / 2:x_end / 2].unsqueeze(0)), 1))
++            up2 = self.back2(torch.cat(
++                (up2, f_2[b, :, z_start / 2:z_end / 2, y_start / 2:y_end / 2, x_start / 2:x_end / 2].unsqueeze(0)), 1))
+             up3 = self.up3(up2)
+             im = img[b, :, z_start:z_end, y_start:y_end, x_start:x_end].unsqueeze(0)
+             up3 = self.back3(torch.cat((up3, im), 1))
+@@ -260,7 +337,7 @@
+             # Get one of the head out of the 28, acoording to the predicted class \hat{c} (cat variable here)
+             logits = getattr(self, 'logits' + str(int(cat)))(up3)
+             logits = logits.squeeze()
+-#             logits = F.sigmoid(logits).squeeze()
++            #             logits = F.sigmoid(logits).squeeze()
+ 
+             mask = Variable(torch.zeros((D, H, W))).cuda()
+             mask[z_start:z_end, y_start:y_end, x_start:x_end] = logits
+@@ -281,7 +358,7 @@
+         b, z_start, y_start, x_start, z_end, y_end, x_end, cat = crop_boxes[i]
+         m = masks[i][z_start:z_end, y_start:y_end, x_start:x_end].contiguous()
+         out.append(m)
+-    
++
+     return out
+ 
+ 
+@@ -294,7 +371,7 @@
+     for cat in pred_cats:
+         preds = boxes[boxes[:, -1] == cat]
+         res.append(preds[0])
+-        
++
+     res = np.array(res)
+     return res
+ 
+@@ -309,7 +386,7 @@
+         preds = boxes[boxes[:, -1] == cat]
+         idx = random.sample(range(len(preds)), 1)[0]
+         res.append(preds[idx])
+-        
++
+     res = np.array(res)
+     return res
+ 
+@@ -322,10 +399,11 @@
+     The input is a lists of rpn proposal [b, z, y, x, d, h, w]
+     The return is a list of pooled features of size rcnn_crop_size
+     """
++
+     def __init__(self, cfg, rcnn_crop_size):
+         super(CropRoi, self).__init__()
+         self.cfg = cfg
+-        self.rcnn_crop_size  = rcnn_crop_size
++        self.rcnn_crop_size = rcnn_crop_size
+         self.scale = cfg['stride']
+ 
+     def forward(self, f, inputs, proposals):
+@@ -338,9 +416,9 @@
+             side_length = p[5:8]
+ 
+             # left bottom corner
+-            c0 = center - side_length / 2 
++            c0 = center - side_length / 2
+             # right upper corner
+-            c1 = c0 + side_length 
++            c1 = c0 + side_length
+ 
+             # corresponding point on the downsampled feature map
+             c0 = (c0 / self.scale).floor().long()
+@@ -367,6 +445,7 @@
+ 
+         return crops
+ 
++
+ class UaNet(nn.Module):
+     def __init__(self, cfg, mode='train'):
+         super(UaNet, self).__init__()
+@@ -380,7 +459,6 @@
+         self.mask_head = MaskHead(config, in_channels=128)
+         self.use_rcnn = False
+         self.use_mask = False
+-                
+ 
+     def forward(self, inputs, truth_boxes, truth_labels, truth_masks, masks):
+         """
+@@ -412,18 +490,18 @@
+         # we will perform nms to rpn results
+         if self.use_rcnn or self.mode in ['eval', 'test']:
+             self.rpn_proposals = rpn_nms(self.cfg, self.mode, inputs, self.rpn_window,
+-                  self.rpn_logits_flat, self.rpn_deltas_flat)
++                                         self.rpn_logits_flat, self.rpn_deltas_flat)
+ 
+         # Generate the labels for each anchor box, and regression terms for positive anchor boxes
+         # Generate the labels for each RPN proposal, and corresponding regression terms
+         if self.mode in ['train', 'valid']:
+             self.rpn_labels, self.rpn_label_assigns, self.rpn_label_weights, self.rpn_targets, self.rpn_target_weights = \
+-                make_rpn_target(self.cfg, self.mode, inputs, self.rpn_window, truth_boxes, truth_labels )
++                make_rpn_target(self.cfg, self.mode, inputs, self.rpn_window, truth_boxes, truth_labels)
+ 
+             if self.use_rcnn:
+                 self.rpn_proposals, self.rcnn_labels, self.rcnn_assigns, self.rcnn_targets = \
+                     make_rcnn_target(self.cfg, self.mode, inputs, self.rpn_proposals,
+-                        truth_boxes, truth_labels, truth_masks)
++                                     truth_boxes, truth_labels, truth_masks)
+ 
+         # RCNN branch
+         self.detections = copy.deepcopy(self.rpn_proposals)
+@@ -432,8 +510,8 @@
+             if len(self.rpn_proposals) > 0:
+                 rcnn_crops = self.rcnn_crop(fs, inputs, self.rpn_proposals)
+                 self.rcnn_logits, self.rcnn_deltas = data_parallel(self.rcnn_head, rcnn_crops)
+-                self.detections, self.keeps = rcnn_nms(self.cfg, self.mode, inputs, self.rpn_proposals, 
+-                                                                        self.rcnn_logits, self.rcnn_deltas)
++                self.detections, self.keeps = rcnn_nms(self.cfg, self.mode, inputs, self.rpn_proposals,
++                                                       self.rcnn_logits, self.rcnn_deltas)
+ 
+             # Mask branch
+             if self.use_mask:
+@@ -454,7 +532,7 @@
+                     # Clip the coordinates, so the points fall within the size of the input data
+                     # More specifically, make sure (0, 0, 0) <= (z0, y0, x0) and (z1, y1, x1) < (D, H, W) 
+                     self.crop_boxes[:, 1:-1] = clip_boxes(self.crop_boxes[:, 1:-1], inputs.shape[2:])
+-                
++
+                 # In evaluation mode, we keep the detection with the highest probability for each OAR
+                 if self.mode in ['eval', 'test']:
+                     self.crop_boxes = top1pred(self.crop_boxes)
+@@ -465,7 +543,7 @@
+                 # Generate mask labels for each detection
+                 if self.mode in ['train', 'valid']:
+                     self.mask_targets = make_mask_target(self.cfg, self.mode, inputs, self.crop_boxes,
+-                        truth_boxes, truth_labels, masks)
++                                                         truth_boxes, truth_labels, masks)
+ 
+                 # Make sure to keep feature maps not splitted by data parallel
+                 features = [t.unsqueeze(0).expand(torch.cuda.device_count(), -1, -1, -1, -1, -1) for t in features]
+@@ -476,7 +554,7 @@
+         """
+         Test the segmentation accuracy with ground truth box as input
+         """
+-        features = data_parallel(self.feature_net, (inputs)); #print('fs[-1] ', fs[-1].shape)
++        features = data_parallel(self.feature_net, (inputs))  # print('fs[-1] ', fs[-1].shape)
+         fs = features[-1]
+ 
+         self.crop_boxes = []
+@@ -488,8 +566,8 @@
+         self.crop_boxes = self.crop_boxes.astype(np.int32)
+         self.crop_boxes[:, 1:-1] = ext2factor(self.crop_boxes[:, 1:-1], 8)
+         self.crop_boxes[:, 1:-1] = clip_boxes(self.crop_boxes[:, 1:-1], inputs.shape[2:])
+-#         self.mask_targets = make_mask_target(self.cfg, self.mode, inputs, self.crop_boxes,
+-#             truth_boxes, truth_labels, masks)
++        #         self.mask_targets = make_mask_target(self.cfg, self.mode, inputs, self.crop_boxes,
++        #             truth_boxes, truth_labels, masks)
+ 
+         # Make sure to keep feature maps not splitted by data parallel
+         features = [t.unsqueeze(0).expand(torch.cuda.device_count(), -1, -1, -1, -1, -1) for t in features]
+@@ -500,18 +578,18 @@
+         """
+         Loss for the network
+         """
+-        cfg  = self.cfg
+-    
++        cfg = self.cfg
++
+         self.rcnn_cls_loss, self.rcnn_reg_loss = torch.zeros(1).cuda(), torch.zeros(1).cuda()
+         rcnn_stats = None
+         mask_stats = None
+ 
+         self.mask_loss = torch.zeros(1).cuda()
+-    
++
+         self.rpn_cls_loss, self.rpn_reg_loss, rpn_stats = \
+-           rpn_loss( self.rpn_logits_flat, self.rpn_deltas_flat, self.rpn_labels,
+-            self.rpn_label_weights, self.rpn_targets, self.rpn_target_weights, self.cfg, mode=self.mode)
+-    
++            rpn_loss(self.rpn_logits_flat, self.rpn_deltas_flat, self.rpn_labels,
++                     self.rpn_label_weights, self.rpn_targets, self.rpn_target_weights, self.cfg, mode=self.mode)
++
+         if self.use_rcnn:
+             self.rcnn_cls_loss, self.rcnn_reg_loss, rcnn_stats = \
+                 rcnn_loss(self.rcnn_logits, self.rcnn_deltas, self.rcnn_labels, self.rcnn_targets)
+@@ -525,12 +603,11 @@
+                 cat = int(self.crop_boxes[i][-1]) - 1
+                 mask_stats[cat] = mask_losses[i]
+             mask_stats[mask_stats == -1] = np.nan
+-    
++
+         self.total_loss = self.rpn_cls_loss + self.rpn_reg_loss \
+-                          + self.rcnn_cls_loss +  self.rcnn_reg_loss \
++                          + self.rcnn_cls_loss + self.rcnn_reg_loss \
+                           + self.mask_loss
+ 
+-    
+         return self.total_loss, rpn_stats, rcnn_stats, mask_stats
+ 
+     def set_mode(self, mode):
+@@ -547,4 +624,3 @@
+ 
+     input = torch.rand([4, 1, 128, 128, 128])
+     input = Variable(input)
+-
