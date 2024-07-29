@@ -83,14 +83,9 @@ git clone https://github.com/uci-cbcl/UaNet
 ```
 * Apply patch
 ```bash
-# Linux
-patch patches/config.diff UaNet/src/config.py
-patch patches/train.diff UaNet/src/train.py
-# Windows
+python patches_apply.py
 # patch python module is in requirements.txt
 # if not installed yet, do `pip install patch`
-python -m patch patches/config.diff
-python -m patch patches/train.diff
 ```
 * Prepare dataset
 ```bash
