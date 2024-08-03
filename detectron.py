@@ -22,6 +22,7 @@ from detectron2.data.datasets.coco import load_coco_json
 # --- Parameters --- #
 # Trainer
 epochs = 100
+checkpoint_period = 10  # Save every 10 epochs
 batch_size = 4
 num_workers = 4
 pretrained = False
@@ -72,6 +73,7 @@ else:
 cfg.DATALOADER.NUM_WORKERS = num_workers
 cfg.SOLVER.IMS_PER_BATCH = batch_size
 cfg.SOLVER.BASE_LR = 0.0001
+cfg.SOLVER.CHECKPOINT_PERIOD = train_size / batch_size * checkpoint_period
 # (train_size / batch_size) * epochs
 cfg.SOLVER.MAX_ITER = int(train_size / batch_size * epochs)
 cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(MetadataCatalog.get("train").thing_classes)
