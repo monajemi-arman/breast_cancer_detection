@@ -2,6 +2,7 @@
 # Train Faster R-CNN model using Detectron
 import os
 
+import cv2
 import torch
 import torchvision
 import torchvision.transforms as transforms
@@ -18,6 +19,7 @@ from detectron2.evaluation import COCOEvaluator, inference_on_dataset, LVISEvalu
 from detectron2.data import build_detection_test_loader
 from detectron2.utils.visualizer import ColorMode
 from detectron2.data.datasets.coco import load_coco_json
+from argparse import ArgumentParser
 
 # --- Parameters --- #
 # Trainer
@@ -33,7 +35,22 @@ yaml_config = "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"
 weights_path = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"
 # --- End of Parameters #
 
+argparser = ArgumentParser()
+argparser.add_argument('-c', '--choice', help="Mode of program: train / predict / evaluate", type=str)
+argparser.add_argument('-i', '--image-path', type=str)
+argparser.add_argument('-o', '--output-path', type=str, default="output_of_detectron.jpg")
+parsed = argparser.parse_args()
+
 choice = None
+if hasattr(parsed, "choice"):
+    choice = parsed.choice.lower()
+
+if hasattr(parsed, "image_path"):
+    image_path = parsed.image_path
+
+if hasattr(parsed, "output_path"):
+    output_path = parsed.output_path
+
 while choice not in ['train', 'evaluate', 'predict']:
     choice = input("Enter mode (train | evaluate | predict): ").lower()
 
@@ -87,3 +104,11 @@ if choice == 'train':
         trainer.resume_or_load(resume=False)
     else:
         trainer.train()
+
+elif choice == 'predict':
+    predictor = DefaultPredictor(cfg)
+    if not image_path:
+        image_path = input("Enter image path: ")
+    image = cv2.imread(image_path)
+    outputs = predictor(image)
+    print(outputs)
