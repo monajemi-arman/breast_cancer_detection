@@ -13,6 +13,7 @@ models/
 dataset.yaml
 split/
 *.bak
+*.pkl
 output/
 UaNet/
 
