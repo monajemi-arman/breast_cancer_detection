@@ -17,10 +17,12 @@ from pytorch_grad_cam.utils.model_targets import FasterRCNNBoxScoreTarget
 from pytorch_grad_cam.utils.reshape_transforms import fasterrcnn_reshape_transform
 from pytorch_grad_cam.utils.image import show_cam_on_image, scale_accross_batch_and_channels, scale_cam_image
 from detectron2.data.datasets.coco import load_coco_json
+import numpy as np
+from uri_template.expansions import Expansion
 
 cfg_output = 'detectron.cfg.pkl'
 json_file = 'test.json'
-image_root = 'test'
+image_root = 'test/images'
 idx = 0  # Index of image in dataset to choose
 
 input_data = load_coco_json(json_file, image_root, dataset_name='test')[idx]
@@ -45,12 +47,36 @@ def detectron_heatmap(input_data, weight_path, method='GradCAM', display=False, 
     DetectionCheckpointer(model).load(weight_path)
     # Load data
     image_path = input_data['file_name']
-    image_data = cv2.imread(image_path)
+    image_data = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     labels, boxes = [], []
     for annotation in input_data['annotations']:
         labels.append(annotation['category_id'])
         boxes.append(annotation['bbox'])
     # XAI
+    # Tweak model for later use in cam
+    model.forward_orig = model.forward
+    def custom_forward(*args):
+        if len(args) == 1:
+            if isinstance(args[0], list) or isinstance(args[0], tuple):
+                if len(args[0]) > 0:
+                    if isinstance(args[0][0], dict):
+                        return model.forward_orig(*args)
+                    else:
+                        new_args = []
+                        for arg in args:
+                            new_args.append({'image': arg})
+                        return model.forward_orig(new_args)
+            elif isinstance(args[0], torch.Tensor):
+                return model.forward_orig([{'image': args[0]}])
+            else:
+                raise Exception("Unexpected 1")
+        elif len(args) == 2:
+            return model.forward_orig(*args)
+        else:
+            raise Exception("Unexpected 2")
+
+    model.forward = custom_forward
+    # Continue XAI...
     targets = [FasterRCNNBoxScoreTarget(labels=labels, bounding_boxes=boxes)]
     target_layers = [model.backbone]
     cam = AblationCAM(model,
@@ -59,6 +85,7 @@ def detectron_heatmap(input_data, weight_path, method='GradCAM', display=False, 
                       reshape_transform=fasterrcnn_reshape_transform,
                       ablation_layer=AblationLayerFasterRCNN(),
                       ratio_channels_to_ablate=1.0)
+    image_data = torch.from_numpy(image_data).float()
     grayscale_cam = cam(image_data, targets=targets)
     grayscale_cam = grayscale_cam[0, :]
     return grayscale_cam
