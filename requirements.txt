@@ -7,3 +7,5 @@ numpy
 SimpleITK
 scikit-image
 patch
+detectron2
+YOLOv8-Explainer
