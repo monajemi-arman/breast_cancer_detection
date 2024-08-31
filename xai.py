@@ -52,43 +52,6 @@ def detectron_heatmap(input_data, weight_path, method='GradCAM', display=False, 
     for annotation in input_data['annotations']:
         labels.append(annotation['category_id'])
         boxes.append(annotation['bbox'])
-    # XAI
-    # Tweak model for later use in cam
-    model.forward_orig = model.forward
-    def custom_forward(*args):
-        if len(args) == 1:
-            if isinstance(args[0], list) or isinstance(args[0], tuple):
-                if len(args[0]) > 0:
-                    if isinstance(args[0][0], dict):
-                        return model.forward_orig(*args)
-                    else:
-                        new_args = []
-                        for arg in args:
-                            new_args.append({'image': arg})
-                        return model.forward_orig(new_args)
-            elif isinstance(args[0], torch.Tensor):
-                return model.forward_orig([{'image': args[0]}])
-            else:
-                raise Exception("Unexpected 1")
-        elif len(args) == 2:
-            return model.forward_orig(*args)
-        else:
-            raise Exception("Unexpected 2")
-
-    model.forward = custom_forward
-    # Continue XAI...
-    targets = [FasterRCNNBoxScoreTarget(labels=labels, bounding_boxes=boxes)]
-    target_layers = [model.backbone]
-    cam = AblationCAM(model,
-                      target_layers,
-                      use_cuda=torch.cuda.is_available(),
-                      reshape_transform=fasterrcnn_reshape_transform,
-                      ablation_layer=AblationLayerFasterRCNN(),
-                      ratio_channels_to_ablate=1.0)
-    image_data = torch.from_numpy(image_data).float()
-    grayscale_cam = cam(image_data, targets=targets)
-    grayscale_cam = grayscale_cam[0, :]
-    return grayscale_cam
 
 function_map = {
     'yolo': yolo_heatmap,
