@@ -16,6 +16,7 @@ split/
 *.pkl
 output/
 UaNet/
+COCO-dataset-explorer
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
