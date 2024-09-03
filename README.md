@@ -75,17 +75,11 @@ python detectron.py
 ---
 # UaNet
 ## Training
-* Clone UaNet repository
+* Clone UaNet repository (patched)
 ```bash
 # Make sure you cd to breast_cancer_detection first
 # cd breast_cancer_detection
-git clone https://github.com/uci-cbcl/UaNet
-```
-* Apply patch
-```bash
-python patches_apply.py
-# patch python module is in requirements.txt
-# if not installed yet, do `pip install patch`
+git clone https://github.com/monajemi-arman/UaNet_2D
 ```
 * Prepare dataset
 ```bash
@@ -97,13 +91,12 @@ python to_3d_nrrd.py
 * Move dataset to model directory
 ```bash
 # While in breast_cancer_detection directory
-mv UaNet-dataset/* UaNet/data/preprocessed/
+mv UaNet-dataset/* UaNet_2D/data/preprocessed/
 # Remove old default configs of UaNet
-rm UaNet/src/split/*
-mv split/* UaNet/src/split/
+mv split/* UaNet_2D/src/split/
 ```
 * Start training
 ```bash
-cd UaNet/src
+cd UaNet_2D/src
 python train.py
 ```
