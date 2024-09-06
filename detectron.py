@@ -27,7 +27,7 @@ epochs = 100
 checkpoint_period = 10  # Save every 10 epochs
 batch_size = 4
 num_workers = 4
-pretrained = False
+pretrained = True
 # Paths
 coco_json = {'train': 'train.json', 'val': 'val.json', 'test': 'test.json'}
 coco_image = {'train': 'train/images', 'val': 'val/images', 'test': 'test/images'}
@@ -116,6 +116,8 @@ def main():
         predictor = DefaultPredictor(cfg)
         if not image_path:
             image_path = input("Enter image path: ")
+        weights_path = input("Enter weights path: ")
+        cfg.MODEL.WEIGHTS = weights_path
         image = cv2.imread(image_path)
         outputs = predictor(image)
         print(outputs)
