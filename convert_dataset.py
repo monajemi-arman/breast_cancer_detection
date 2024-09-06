@@ -150,8 +150,9 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
                 # X/Y center to X1/Y1 and X2/Y2
                 bbox[0] -= bbox[2]
                 bbox[1] -= bbox[3]
-                bbox[2] += bbox[0]
-                bbox[3] += bbox[1]
+                # Commented out: Should be width and height not x2 and y2
+                # bbox[2] += bbox[0]
+                # bbox[3] += bbox[1]
 
                 coco_annotations["annotations"].append({
                     "id": annotation_id,
@@ -164,7 +165,7 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
                 annotation_id += 1
 
     categories = list(categories)
-    for category_id in range(1, len(categories) + 1):
+    for category_id in range(0, len(categories)):
         coco_annotations["categories"].append({
             "id": category_id,
             "name": str(category_id)
