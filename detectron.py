@@ -108,10 +108,7 @@ def main():
     if choice == 'train':
         # Training
         trainer = DefaultTrainer(cfg)
-        if pretrained:
-            trainer.resume_or_load(resume=False)
-        else:
-            trainer.train()
+        trainer.train()
 
     elif choice == 'predict':
         predictor = DefaultPredictor(cfg)
