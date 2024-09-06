@@ -39,6 +39,7 @@ cfg_output = "detectron.cfg.pkl"
 # --- End of Parameters #
 
 def main():
+    global weights_path
     argparser = ArgumentParser()
     argparser.add_argument('-c', '--choice', help="Mode of program: train / predict / evaluate", type=str)
     argparser.add_argument('-i', '--image-path', type=str)
