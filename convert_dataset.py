@@ -140,7 +140,7 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
         with open(os.path.join(yolo_annotations, label_file)) as f:
             for line in f:
                 parts = line.strip().split()
-                category_id = int(parts[0]) + 1  # COCO category ids start at 1
+                category_id = int(parts[0])
                 categories.add(category_id)
                 bbox = [float(x) for x in parts[1:]]
                 bbox[0] *= width
