@@ -5,6 +5,7 @@ labels/
 masks/
 archive/
 *.pt
+*.yaml
 *.cache
 runs/
 UaNet-dataset/
