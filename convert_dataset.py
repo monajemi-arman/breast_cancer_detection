@@ -175,6 +175,10 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
         json.dump(coco_annotations, f, indent=4)
 
 
+def normalize(pixel_array):
+    pixel_range = pixel_array.max() - pixel_array.min()
+    return (pixel_array - pixel_array.min()) / pixel_range
+
 # all_classes is a list of all class names, for later reference and assigning IDs to class names
 all_classes = []
 if 'mass' in chosen_classes:
@@ -283,7 +287,9 @@ if 'inbreast' in chosen_datasets:
                         cls_suffix = '_high'
             # Extract image from DICOM in dcm_path
             # Read pixels from DICOM, convert tp 0-255 range for JPEG
-            pixel_array = pydicom.read_file(patient_dir).pixel_array.astype(np.uint8)
+            pixel_array = pydicom.read_file(patient_dir).pixel_array
+            pixel_array = normalize(pixel_array) * 255
+            pixel_array = np.uint8(pixel_array)
             image = Image.fromarray(pixel_array)
             jpeg_path = os.path.join(image_out_dir, dcm_prefix + '.jpg')
             if not os.path.exists(jpeg_path):
