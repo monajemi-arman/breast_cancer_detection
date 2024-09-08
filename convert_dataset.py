@@ -18,6 +18,7 @@ from csv import DictReader
 import shutil
 import pandas as pd
 import argparse
+from utils import yolo_to_coco
 
 # -- How to Use --- #
 # The folder in which this script is located in must contain:
@@ -106,74 +107,6 @@ if output_choice == 'coco':
 
 # Overall Counters for ID
 image_id = 0
-
-
-# YOLO to JSON Conversion
-def yolo_to_coco(yolo_annotations, image_dir, output_file):
-    coco_annotations = {
-        "images": [],
-        "annotations": [],
-        "categories": []
-    }
-
-    categories = set()
-    annotation_id = 1
-
-    for label_file in os.listdir(yolo_annotations):
-        if not label_file.endswith(".txt"):
-            continue
-
-        image_file = os.path.splitext(label_file)[0] + ".jpg"
-        image_path = os.path.join(image_dir, image_file)
-
-        image = Image.open(image_path)
-        width, height = image.size
-
-        image_id = len(coco_annotations["images"])
-        coco_annotations["images"].append({
-            "id": image_id,
-            "file_name": image_file,
-            "width": width,
-            "height": height
-        })
-
-        with open(os.path.join(yolo_annotations, label_file)) as f:
-            for line in f:
-                parts = line.strip().split()
-                category_id = int(parts[0])
-                categories.add(category_id)
-                bbox = [float(x) for x in parts[1:]]
-                bbox[0] *= width
-                bbox[1] *= height
-                bbox[2] *= width
-                bbox[3] *= height
-                # X/Y center to X1/Y1 and X2/Y2
-                bbox[0] -= bbox[2]
-                bbox[1] -= bbox[3]
-                # Commented out: Should be width and height not x2 and y2
-                # bbox[2] += bbox[0]
-                # bbox[3] += bbox[1]
-
-                coco_annotations["annotations"].append({
-                    "id": annotation_id,
-                    "image_id": image_id,
-                    "category_id": category_id,
-                    "bbox": bbox,
-                    "area": bbox[2] * bbox[3],
-                    "iscrowd": 0
-                })
-                annotation_id += 1
-
-    categories = list(categories)
-    for category_id in range(0, len(categories)):
-        coco_annotations["categories"].append({
-            "id": category_id,
-            "name": str(category_id)
-        })
-
-    with open(output_file, "w") as f:
-        json.dump(coco_annotations, f, indent=4)
-
 
 def normalize(pixel_array):
     pixel_range = pixel_array.max() - pixel_array.min()
