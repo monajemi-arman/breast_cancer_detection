@@ -1,6 +1,8 @@
 # Breast_Cancer_Detection
 Breast cancer detection using mammography images, utilizing deep learning models
 
+# Datasets
+
 Supported datasets:
 * InBreast
 * CBIS-DDSM (Curated Breast Imaging Subset of DDSM)
@@ -11,6 +13,20 @@ Supported models:
   * YOLO 
   * Any model that supports YOLO / COCO style dataset
 * Customized [UaNet](https://github.com/uci-cbcl/UaNet/) for 2D mammography images
+
+## Visualizer
+After converting the datasets to COCO / YOLO style in the next section (Usage),
+you may visualize the standardized dataset using the following methods.
+### COCO Style dataset
+```bash
+python visualizer.py -m coco -d train/images -l train.json 
+```
+### YOLO Style dataset
+```bash
+python visualizer.py -m yolo -d train/images -l train/labels 
+```
+
+![](demo/visualizer.png)
 
 # Usage
 **1. Clone this repository**
