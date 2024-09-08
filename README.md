@@ -14,6 +14,33 @@ Supported models:
   * Any model that supports YOLO / COCO style dataset
 * Customized [UaNet](https://github.com/uci-cbcl/UaNet/) for 2D mammography images
 
+## Download
+### Google Colab
+* Use download_datasets_colab.ipynb jupyter notebook in Google Colab to download all datasets.
+* You will need to upload your _'kaggle.json'_ when the notebook gives you an upload dialog.
+* After logging in to kaggle, you can get your kaggle json in API section of https://www.kaggle.com/settings.
+* The notebook will clone this repository and download all datasets.
+### Manual
+Dataset links:
+* https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset
+* https://www.kaggle.com/datasets/awsaf49/cbis-ddsm-breast-cancer-image-dataset
+* https://www.kaggle.com/datasets/kmader/mias-mammography
+
+Download the above datasets and after cloning this repository, create the following directories:
+* breast_cancer_detection/
+  * datasets/
+    * all-mias/
+      * mdb001.pgm
+      * ...
+    * CBIS-DDSM/
+      * csv/
+      * jpeg/
+    * INbreast Release 1.0/
+      * AllDICOMs/
+      * ...
+
+Copy datasets to directories accordingly.
+
 ## Visualizer
 After converting the datasets to COCO / YOLO style in the next section (Usage),
 you may visualize the standardized dataset using the following methods.
