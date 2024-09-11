@@ -11,7 +11,6 @@ from detectron2 import model_zoo
 from detectron2.engine import DefaultTrainer
 from detectron2.engine import DefaultPredictor
 from detectron2.config import get_cfg
-from detectron2.utils.visualizer import Visualizer
 from detectron2.structures import BoxMode
 from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.evaluation import COCOEvaluator, inference_on_dataset, LVISEvaluator
@@ -20,6 +19,9 @@ from detectron2.utils.visualizer import ColorMode
 from detectron2.data.datasets.coco import load_coco_json
 from argparse import ArgumentParser
 from cloudpickle import pickle
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib.widgets import Slider
 
 # --- Parameters --- #
 # Trainer
@@ -32,17 +34,95 @@ pretrained = True
 coco_json = {'train': 'train.json', 'val': 'val.json', 'test': 'test.json'}
 coco_image = {'train': 'train/images', 'val': 'val/images', 'test': 'test/images'}
 yaml_config = "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"
-weights_path = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"
+pretrained_weights_path = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"
 cfg_output = "detectron.cfg.pkl"
-
-
 # --- End of Parameters #
 
+slider = None  # Bug
+
+def visualize_predictions(image, predictions, confidence_threshold=0.5):
+    global slider  # Bug
+    # Extract predictions
+    pred_boxes = predictions['instances'].pred_boxes.tensor.cpu().numpy()  # Convert to CPU and NumPy
+    scores = predictions['instances'].scores.cpu().numpy()
+
+    # Create a figure and axis for the image
+    fig, ax = plt.subplots(1, figsize=(12, 8))
+    plt.subplots_adjust(left=0.1, bottom=0.25)  # Adjust layout to make space for the slider
+    ax.imshow(image)
+
+    # Function to update the plot based on the confidence threshold
+    def update(val):
+        global slider  # Bug
+        threshold = slider.val  # Get the current value of the slider
+        ax.clear()  # Clear previous bounding boxes
+
+        # Filter boxes based on threshold
+        keep = scores >= threshold
+        filtered_boxes = pred_boxes[keep]
+        filtered_scores = scores[keep]
+
+        # Draw updated bounding boxes and scores
+        ax.imshow(image)
+        for box, score in zip(filtered_boxes, filtered_scores):
+            x1, y1, x2, y2 = box
+            width, height = x2 - x1, y2 - y1
+
+            # Draw bounding box
+            rect = Rectangle((x1, y1), width, height, linewidth=2, edgecolor='r', facecolor='none')
+            ax.add_patch(rect)
+
+            # Add confidence score
+            ax.text(x1, y1, f'{score:.2f}', color='yellow', fontsize=12, verticalalignment='top')
+
+        plt.draw()  # Redraw the plot
+
+    # Initialize the plot with a default threshold (0.5)
+    initial_threshold = confidence_threshold
+
+    # Add a slider to control the confidence threshold
+    ax_slider = plt.axes([0.1, 0.1, 0.8, 0.05], facecolor='lightgray')  # Position of the slider
+    slider = Slider(ax_slider, 'Confidence', 0, 1, valinit=initial_threshold)
+    update(initial_threshold)
+
+    # Update the plot whenever the slider value changes
+    slider.on_changed(update)
+
+    plt.show()
+
+def train(cfg, parsed=None):
+    trainer = DefaultTrainer(cfg)
+    trainer.train()
+
+def predict(cfg, parsed):
+    if parsed.image_path:
+        image_path = parsed.image_path
+    else:
+        image_path = input("Enter image path: ")
+    if parsed.weights_path:
+        weights_path = parsed.weights_path
+    else:
+        weights_path = input("Enter weights path: ")
+    predictor = DefaultPredictor(cfg)
+    cfg.MODEL.WEIGHTS = weights_path
+    image = cv2.imread(image_path)
+    predictions = predictor(image)
+    visualize_predictions(image, predictions)
+
+choices_map = {
+    'train': train,
+    'predict': predict,
+    'eval': None
+}
+choices = choices_map.keys()
+
+
 def main():
-    global weights_path
+    global pretrained_weights_path
     argparser = ArgumentParser()
     argparser.add_argument('-c', '--choice', help="Mode of program: train / predict / evaluate", type=str)
     argparser.add_argument('-i', '--image-path', type=str)
+    argparser.add_argument('-w', '--weights-path', type=str)
     argparser.add_argument('-o', '--output-path', type=str, default="output_of_detectron.jpg")
     parsed = argparser.parse_args()
 
@@ -56,7 +136,7 @@ def main():
     if parsed.output_path:
         output_path = parsed.output_path
 
-    while choice not in ['train', 'evaluate', 'predict']:
+    while choice not in choices:
         choice = input("Enter mode (train | evaluate | predict): ").lower()
 
     device = 'cpu'
@@ -89,7 +169,7 @@ def main():
     cfg.DATASETS.TRAIN = ("train",)
     cfg.DATASETS.TEST = ("test",)
     if pretrained:
-        cfg.MODEL.WEIGHTS = weights_path
+        cfg.MODEL.WEIGHTS = pretrained_weights_path
     else:
         cfg.MODEL.WEIGHTS = ""
     cfg.DATALOADER.NUM_WORKERS = num_workers
@@ -104,21 +184,8 @@ def main():
         pickle.dump(cfg, f)
     # ./output
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-
-    if choice == 'train':
-        # Training
-        trainer = DefaultTrainer(cfg)
-        trainer.train()
-
-    elif choice == 'predict':
-        predictor = DefaultPredictor(cfg)
-        if not image_path:
-            image_path = input("Enter image path: ")
-        weights_path = input("Enter weights path: ")
-        cfg.MODEL.WEIGHTS = weights_path
-        image = cv2.imread(image_path)
-        outputs = predictor(image)
-        print(outputs)
+    # Run choice action
+    choices_map[choice](cfg, parsed)
 
 
 if __name__ == '__main__':
