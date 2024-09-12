@@ -5,6 +5,11 @@ import re
 import albumentations as A
 from tqdm import tqdm
 import argparse
+from pathlib import Path
+from utils import coco_to_yolo
+
+# YOLO labels directory name
+labels_dir_name = 'labels'
 
 # Define augmentation pipeline
 transform = A.Compose([
@@ -114,6 +119,10 @@ def main():
 
     print(
         f"Augmentation completed. Augmented images saved to {args.output_image_folder} and annotations to {args.output_annotation_file}")
+
+    print("Converting COCO to YOLO...")
+    coco_to_yolo(args.output_annotation_file, os.path.join(Path(args.output_image_folder).parent, labels_dir_name),
+                 args.output_image_folder)
 
 
 if __name__ == "__main__":
