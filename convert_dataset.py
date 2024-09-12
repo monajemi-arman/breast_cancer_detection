@@ -85,7 +85,7 @@ output_choice = output_choice.lower()
 # Skip not implemented features
 if output_choice == 'mask':
     # Faulty masks are made due to wrong names
-    if os.exists(image_out_dir):
+    if os.path.exists(image_out_dir):
         print("Directory 'images' must be removed before running this program in mask mode!")
         choice = input("Should images/ directory be removed? (Y/n)").lower()
         if choice == 'y':
@@ -111,6 +111,11 @@ image_id = 0
 def normalize(pixel_array):
     pixel_range = pixel_array.max() - pixel_array.min()
     return (pixel_array - pixel_array.min()) / pixel_range
+
+def normalize_with_threshold(pixel_array, threshold=(1000, 2000)):
+    pixel_array[pixel_array < threshold[0]] = threshold[0]
+    pixel_array[pixel_array > threshold[1]] = threshold[1]
+    normalize(pixel_array)
 
 # all_classes is a list of all class names, for later reference and assigning IDs to class names
 all_classes = []
@@ -221,7 +226,7 @@ if 'inbreast' in chosen_datasets:
             # Extract image from DICOM in dcm_path
             # Read pixels from DICOM, convert tp 0-255 range for JPEG
             pixel_array = pydicom.read_file(patient_dir).pixel_array
-            pixel_array = normalize(pixel_array) * 255
+            pixel_array = normalize_with_threshold(pixel_array) * 255
             pixel_array = np.uint8(pixel_array)
             image = Image.fromarray(pixel_array)
             jpeg_path = os.path.join(image_out_dir, dcm_prefix + '.jpg')
