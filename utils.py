@@ -2,6 +2,7 @@
 import json
 import os
 from PIL import Image
+import cv2
 
 # YOLO to JSON Conversion
 def yolo_to_coco(yolo_annotations, image_dir, output_file):
@@ -72,3 +73,37 @@ def yolo_to_coco(yolo_annotations, image_dir, output_file):
     with open(output_file, "w") as f:
         json.dump(coco_annotations, f, indent=4)
 
+
+def coco_to_yolo(coco_annotation_file, output_dir, image_dir):
+    # Load COCO annotations
+    with open(coco_annotation_file) as f:
+        coco_data = json.load(f)
+
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Iterate over images
+    for image in coco_data['images']:
+        image_id = image['id']
+        file_name = image['file_name']
+        image_path = os.path.join(image_dir, file_name)
+
+        # Load image
+        img = cv2.imread(image_path)
+
+        # Create YOLO annotation file
+        yolo_file = os.path.join(output_dir, file_name.replace('.jpg', '.txt'))
+        with open(yolo_file, 'w') as f:
+            for annotation in coco_data['annotations']:
+                if annotation['image_id'] == image_id:
+                    x, y, w, h = annotation['bbox']
+                    class_id = annotation['category_id']
+
+                    # Convert COCO bounding box format to YOLO format
+                    center_x = (x + w / 2) / img.shape[1]
+                    center_y = (y + h / 2) / img.shape[0]
+                    relative_width = w / img.shape[1]
+                    relative_height = h / img.shape[0]
+
+                    # Write YOLO annotation to file
+                    f.write(f"{class_id} {center_x} {center_y} {relative_width} {relative_height}\n")
