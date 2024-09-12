@@ -92,6 +92,8 @@ def visualize_predictions(image, predictions, confidence_threshold=0.5):
 
 def train(cfg, parsed=None):
     trainer = DefaultTrainer(cfg)
+    if cfg.MODEL.WEIGHTS:
+        trainer.resume_or_load(resume=False)
     trainer.train()
 
 def predict(cfg, parsed):
@@ -170,6 +172,7 @@ def main():
     cfg.DATASETS.TEST = ("test",)
     if pretrained:
         cfg.MODEL.WEIGHTS = pretrained_weights_path
+
     else:
         cfg.MODEL.WEIGHTS = ""
     cfg.DATALOADER.NUM_WORKERS = num_workers

@@ -115,7 +115,7 @@ def normalize(pixel_array):
 def normalize_with_threshold(pixel_array, threshold=(1000, 2000)):
     pixel_array[pixel_array < threshold[0]] = threshold[0]
     pixel_array[pixel_array > threshold[1]] = threshold[1]
-    normalize(pixel_array)
+    return normalize(pixel_array)
 
 # all_classes is a list of all class names, for later reference and assigning IDs to class names
 all_classes = []
