@@ -8,6 +8,8 @@ import argparse
 from pathlib import Path
 from utils import coco_to_yolo
 
+# How many times multiply number of images
+n_times = 4
 # YOLO labels directory name
 labels_dir_name = 'labels'
 
@@ -70,7 +72,7 @@ def main():
             bboxes = [anno['bbox'] for anno in annotations]
             category_ids = [anno['category_id'] for anno in annotations]
 
-            for i in range(5):
+            for i in range(n_times):
                 augmented = transform(image=image, bboxes=bboxes, category_ids=category_ids)
                 augmented_image = augmented['image']
                 augmented_bboxes = augmented['bboxes']

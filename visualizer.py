@@ -2,6 +2,7 @@ import os
 import cv2
 import json
 import argparse
+import numpy as np
 from prompt_toolkit import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout, HSplit, VSplit, Window
@@ -26,6 +27,11 @@ def draw_coco_bboxes(image, bbox, color, label=None):
     cv2.rectangle(image, (x, y), (x + width, y + height), color, 8)
     if label:
         cv2.putText(image, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+
+def draw_mask(image, mask, color):
+    mask_overlay = np.zeros(image.shape, dtype=np.uint8)
+    mask_overlay[mask > 0] = color
+    cv2.addWeighted(image, 1, mask_overlay, 0.5, 0, image)
 
 def resize_to_half_screen(image):
     screen_width, screen_height = 1920, 1080
@@ -57,7 +63,15 @@ def visualize_coco(image_path, annotation, class_names):
         draw_coco_bboxes(image, bbox, color, class_names[class_id])
     return resize_to_half_screen(image)
 
-def display_image(dataset_path, dataset_type, label_path, class_names, selected_file):
+def visualize_mask(image_path, mask_path):
+    image = cv2.imread(image_path)
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    if mask.shape[:2] != image.shape[:2]:
+        mask = cv2.resize(mask, (image.shape[1], image.shape[0]))
+    draw_mask(image, mask, (0, 255, 0))  # Green for mask overlay
+    return resize_to_half_screen(image)
+
+def display_image(dataset_path, dataset_type, label_path, class_names, selected_file, mask_suffix='.jpg'):
     if selected_file:
         image_path = os.path.join(dataset_path, selected_file)
         if dataset_type == 'yolo':
@@ -76,8 +90,15 @@ def display_image(dataset_path, dataset_type, label_path, class_names, selected_
                 return
             image_annotations = [ann for ann in annotations['annotations'] if ann['image_id'] == image_id]
             image = visualize_coco(image_path, image_annotations, class_names)
+        elif dataset_type == 'mask':
+            mask_file = os.path.splitext(selected_file)[0] + mask_suffix
+            mask_path = os.path.join(label_path, mask_file)
+            if not os.path.exists(mask_path):
+                print(f"Mask file {mask_path} not found!")
+                return
+            image = visualize_mask(image_path, mask_path)
 
-        cv2.imshow('Bounding Boxes', image)
+        cv2.imshow('Visualization', image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
@@ -154,8 +175,8 @@ def interactive_file_browser(dataset_path, dataset_type, label_path, class_names
     app.run()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Visualize bounding boxes on images for YOLO or COCO datasets.')
-    parser.add_argument('-m', '--mode', choices=['yolo', 'coco'], required=True, help="Dataset mode: 'yolo' or 'coco'")
+    parser = argparse.ArgumentParser(description='Visualize bounding boxes or masks on images for YOLO, COCO, or mask datasets.')
+    parser.add_argument('-m', '--mode', choices=['yolo', 'coco', 'mask'], required=True, help="Dataset mode: 'yolo', 'coco', or 'mask'")
     parser.add_argument('-d', '--dataset-path', type=str, required=True, help='Path to the folder containing images')
     parser.add_argument('-l', '--label-path', type=str, required=True, help='Path to annotations folder or JSON file')
     args = parser.parse_args()
