@@ -7,7 +7,7 @@ numpy
 SimpleITK
 scikit-image
 patch
-detectron2
+git+https://github.com/facebookresearch/detectron2.git
 YOLOv8-Explainer
 torch
 argparse
