@@ -41,7 +41,7 @@ chosen_classes = ['mass']  # Available options: 'mass', 'calcification'
 # Hacky point: YOLO mode now generates annotations.json for COCO style as well
 output_choice = 'yolo'  # available modes: yolo, mask
 # Use Bi-Rads or not; When True, adds 'mass_low' and 'mass_high' to class names
-low_high_mode = False
+low_high_mode = True
 # Train / Validation / Test split ratio
 split_mode = True
 split_ratio = [0.8, 0.1, 0.1]
