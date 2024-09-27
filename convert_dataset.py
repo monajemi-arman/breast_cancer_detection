@@ -8,7 +8,7 @@ import re
 from pathlib import Path
 import ast
 import cv2
-import pydicom
+from pydicom import dcmread
 import xmltodict
 import numpy as np
 from PIL import Image
@@ -225,7 +225,7 @@ if 'inbreast' in chosen_datasets:
                         cls_suffix = '_high'
             # Extract image from DICOM in dcm_path
             # Read pixels from DICOM, convert tp 0-255 range for JPEG
-            pixel_array = pydicom.read_file(patient_dir).pixel_array
+            pixel_array = dcmread(patient_dir).pixel_array
             pixel_array = normalize_with_threshold(pixel_array) * 255
             pixel_array = np.uint8(pixel_array)
             image = Image.fromarray(pixel_array)
