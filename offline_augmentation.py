@@ -9,7 +9,7 @@ from pathlib import Path
 from utils import coco_to_yolo
 
 # How many times multiply number of images
-n_times = 4
+n_times = 3
 # YOLO labels directory name
 labels_dir_name = 'labels'
 
