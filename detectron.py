@@ -2,14 +2,14 @@
 # Train Faster R-CNN model using Detectron
 import os
 import cv2
+import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
 import detectron2
 from detectron2.utils.logger import setup_logger
 from detectron2 import model_zoo
-from detectron2.engine import DefaultTrainer
-from detectron2.engine import DefaultPredictor
+from detectron2.engine import DefaultTrainer, DefaultPredictor
 from detectron2.config import get_cfg
 from detectron2.structures import BoxMode
 from detectron2.data import DatasetCatalog, MetadataCatalog
@@ -17,6 +17,7 @@ from detectron2.evaluation import COCOEvaluator, inference_on_dataset, LVISEvalu
 from detectron2.data import build_detection_test_loader
 from detectron2.utils.visualizer import ColorMode
 from detectron2.data.datasets.coco import load_coco_json
+from sklearn.metrics import precision_recall_curve
 from argparse import ArgumentParser
 from cloudpickle import pickle
 import matplotlib.pyplot as plt
@@ -111,10 +112,163 @@ def predict(cfg, parsed):
     predictions = predictor(image)
     visualize_predictions(image, predictions)
 
+
+def evaluate(cfg, parsed=None, dataset_name="test"):
+    cfg.DATASETS.TEST = ("test",)
+    if parsed.weights_path:
+        weights_path = parsed.weights_path
+    else:
+        weights_path = input("Enter weights path: ")
+    cfg.MODEL.WEIGHTS = weights_path
+
+    if dataset_name not in DatasetCatalog.list():
+        raise ValueError(f"Dataset '{dataset_name}' is not registered.")
+
+    evaluator = COCOEvaluator(dataset_name, cfg, False, output_dir="./output/")
+    test_loader = build_detection_test_loader(cfg, dataset_name)
+
+    predictor = DefaultPredictor(cfg)
+
+    all_ground_truths = []
+    all_predictions = []
+
+    for inputs in test_loader:
+        # Get ground truth annotations (if available) from the dataset itself
+        image_id = inputs[0]["image_id"]
+        annotations = DatasetCatalog.get(dataset_name)[image_id].get("annotations", [])
+
+        # Prepare ground truth bounding boxes and classes (if available)
+        gt_boxes = [ann["bbox"] for ann in annotations]
+        gt_classes = [ann["category_id"] for ann in annotations]
+        all_ground_truths.append({"boxes": gt_boxes, "classes": gt_classes})
+
+        # Get predictions
+        outputs = predictor(
+            np.transpose(inputs[0]["image"]
+                         .numpy(),
+                         (1, 2, 0))
+        )
+        pred_boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()
+        scores = outputs["instances"].scores.cpu().numpy()
+        pred_classes = outputs["instances"].pred_classes.cpu().numpy()
+
+        predictions = {
+            "boxes": pred_boxes,
+            "scores": scores,
+            "classes": pred_classes
+        }
+        all_predictions.append(predictions)
+
+    results = inference_on_dataset(predictor.model, test_loader, evaluator)
+    print(results)
+
+    precision, recall, thresholds = compute_precision_recall(all_ground_truths, all_predictions)
+
+    plt.figure()
+    plt.plot(recall, precision, label="Precision-Recall Curve")
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.title('Precision-Recall Curve')
+    plt.legend()
+    plt.show()
+
+    return results
+
+
+def compute_precision_recall(ground_truths, predictions, iou_threshold=0.5):
+    all_true_labels = []
+    all_scores = []
+
+    for gt, pred in zip(ground_truths, predictions):
+        gt_boxes = gt["boxes"]
+        pred_boxes = pred["boxes"]
+        pred_scores = pred["scores"]
+
+        # Sort predictions by score in descending order
+        sorted_indices = np.argsort(pred_scores)[::-1]
+        pred_boxes = pred_boxes[sorted_indices]
+        pred_scores = pred_scores[sorted_indices]
+
+        true_labels = np.zeros(len(pred_boxes), dtype=bool)
+
+        for i, pred_box in enumerate(pred_boxes):
+            for gt_box in gt_boxes:
+                iou = calculate_iou(pred_box, gt_box)
+                if iou >= iou_threshold:
+                    true_labels[i] = True
+                    break
+
+        all_true_labels.extend(true_labels)
+        all_scores.extend(pred_scores)
+
+    all_true_labels = np.array(all_true_labels)
+    all_scores = np.array(all_scores)
+
+    precision, recall, thresholds = precision_recall_curve(all_true_labels, all_scores)
+
+    return precision, recall, thresholds
+
+
+def calculate_iou(box1, box2):
+    # Convert XYWH format to XYXY format
+    box1 = [box1[0], box1[1], box1[0] + box1[2], box1[1] + box1[3]]
+    box2 = [box2[0], box2[1], box2[0] + box2[2], box2[1] + box2[3]]
+
+    # Calculate intersection
+    x1 = max(box1[0], box2[0])
+    y1 = max(box1[1], box2[1])
+    x2 = min(box1[2], box2[2])
+    y2 = min(box1[3], box2[3])
+
+    intersection = max(0, x2 - x1) * max(0, y2 - y1)
+
+    # Calculate union
+    area1 = (box1[2] - box1[0]) * (box1[3] - box1[1])
+    area2 = (box2[2] - box2[0]) * (box2[3] - box2[1])
+    union = area1 + area2 - intersection
+
+    # Calculate IoU
+    iou = intersection / union if union > 0 else 0
+    return iou
+
+
+def compute_precision_recall(ground_truths, predictions, iou_threshold=0.5):
+    all_true_labels = []
+    all_scores = []
+
+    for gt, pred in zip(ground_truths, predictions):
+        gt_boxes = gt["boxes"]
+        pred_boxes = pred["boxes"]
+        pred_scores = pred["scores"]
+
+        # Sort predictions by score in descending order
+        sorted_indices = np.argsort(pred_scores)[::-1]
+        pred_boxes = pred_boxes[sorted_indices]
+        pred_scores = pred_scores[sorted_indices]
+
+        true_labels = np.zeros(len(pred_boxes), dtype=bool)
+
+        for i, pred_box in enumerate(pred_boxes):
+            for gt_box in gt_boxes:
+                iou = calculate_iou(pred_box, gt_box)
+                if iou >= iou_threshold:
+                    true_labels[i] = True
+                    break
+
+        all_true_labels.extend(true_labels)
+        all_scores.extend(pred_scores)
+
+    all_true_labels = np.array(all_true_labels)
+    all_scores = np.array(all_scores)
+
+    precision, recall, thresholds = precision_recall_curve(all_true_labels, all_scores)
+
+    return precision, recall, thresholds
+
 choices_map = {
     'train': train,
     'predict': predict,
-    'eval': None
+    'evaluate': evaluate
 }
 choices = choices_map.keys()
 
@@ -169,7 +323,8 @@ def main():
     cfg = get_cfg()
     cfg.merge_from_file(model_zoo.get_config_file(yaml_config))
     cfg.DATASETS.TRAIN = ("train",)
-    cfg.DATASETS.TEST = ("test",)
+    cfg.DATASETS.TEST = ("val",)
+    cfg.TEST.EVAL_PERIOD = 500
     if pretrained:
         cfg.MODEL.WEIGHTS = pretrained_weights_path
 
