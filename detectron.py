@@ -105,8 +105,8 @@ def predict(cfg, parsed):
         weights_path = parsed.weights_path
     else:
         weights_path = input("Enter weights path: ")
-    predictor = DefaultPredictor(cfg)
     cfg.MODEL.WEIGHTS = weights_path
+    predictor = DefaultPredictor(cfg)
     image = cv2.imread(image_path)
     predictions = predictor(image)
     visualize_predictions(image, predictions)
