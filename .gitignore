@@ -16,6 +16,7 @@ split/
 *.bak
 *.pkl
 output/
+output_good/
 UaNet_2D/
 
 # Byte-compiled / optimized / DLL files
