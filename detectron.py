@@ -32,7 +32,7 @@ import json
 # --- Parameters --- #
 # Trainer
 epochs = 100
-checkpoint_period = 10  # Save every 10 epochs
+checkpoint_period = 5  # Save every 10 epochs
 batch_size = 4
 num_workers = 4
 pretrained = True
