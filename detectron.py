@@ -36,6 +36,7 @@ checkpoint_period = 10  # Save every 10 epochs
 batch_size = 4
 num_workers = 4
 pretrained = True
+cb_only = False  # Set to True if only CBIS-DDSM dataset is desired to be loaded
 # Paths
 coco_json = {'train': 'train.json', 'val': 'val.json', 'test': 'test.json'}
 coco_image = {'train': 'train/images', 'val': 'val/images', 'test': 'test/images'}
@@ -95,10 +96,6 @@ def get_dataset_path(image_path, coco_json):
         if f'{split}/' in image_path:
             return coco_json[split]
     return None
-
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from matplotlib.widgets import Slider, Button
 
 # Declare global variables
 slider, show_labels, show_gt, has_gt = None, True, False, False
@@ -191,7 +188,9 @@ def visualize_predictions(image, predictions, dataset_path=None, file_name=None,
 
 def train(cfg, parsed=None):
     trainer = DefaultTrainer(cfg)
-    if cfg.MODEL.WEIGHTS:
+    if cfg.MODEL.WEIGHTS or parsed.weights_path:
+        if parsed.weights_path:
+            cfg.MODEL.WEIGHTS = parsed.weights_path
         trainer.resume_or_load(resume=False)
     trainer.train()
 
@@ -348,6 +347,23 @@ def calculate_iou(box1, box2):
     iou = intersection / union if union > 0 else 0
     return iou
 
+def load_and_filter_dataset(json_file, image_root, dataset_name, filter_cb=False):
+    # Load the dataset
+    loaded_dataset = load_coco_json(json_file=json_file,
+                                      image_root=image_root,
+                                      dataset_name=dataset_name)
+
+    # Filter the dataset if cb_only is True
+    if filter_cb:
+        print("Filtering CBIS-DDSM for", dataset_name)
+        filtered_dataset = [
+            entry for entry in loaded_dataset
+            if os.path.basename(entry["file_name"]).startswith("cb")
+        ]
+        return filtered_dataset
+
+    return loaded_dataset
+
 choices_map = {
     'train': train,
     'predict': predict,
@@ -395,8 +411,8 @@ def main():
         if dataset_name not in keys_image:
             raise Exception('coco_json and coco_image dictionaries must have same keys!')
         # Load
-        loaded_dataset = load_coco_json(json_file=coco_json[dataset_name], image_root=coco_image[dataset_name],
-                                        dataset_name=dataset_name)
+        loaded_dataset = load_and_filter_dataset(json_file=coco_json[dataset_name], image_root=coco_image[dataset_name],
+                                        dataset_name=dataset_name, filter_cb=cb_only)
         if dataset_name == 'train':
             train_size = len(loaded_dataset)
         # Register
