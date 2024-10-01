@@ -4,13 +4,14 @@ import os
 import sys
 from pathlib import Path
 from sys import stderr
-
+import fiftyone as fo
 import cv2
 import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
 import detectron2
+import yaml
 from detectron2.utils.logger import setup_logger
 from detectron2 import model_zoo
 from detectron2.engine import DefaultTrainer, DefaultPredictor
@@ -43,6 +44,11 @@ coco_image = {'train': 'train/images', 'val': 'val/images', 'test': 'test/images
 yaml_config = "COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml"
 pretrained_weights_path = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"
 cfg_output = "detectron.cfg.pkl"
+dataset_yaml = 'dataset.yaml'
+yolo_paths = {
+    'labels': 'labels',
+    'images': 'images'
+}
 # --- End of Parameters #
 
 slider = None  # Bug
@@ -215,8 +221,64 @@ def predict(cfg, parsed):
         visualize_predictions(image, predictions)
 
 
+def evaluate_fo(cfg, parsed=None, dataset_name="test"):
+    cfg.DATASETS.TEST = (dataset_name,)
+    if parsed.weights_path:
+        weights_path = parsed.weights_path
+    else:
+        weights_path = input("Enter weights path: ")
+    cfg.MODEL.WEIGHTS = weights_path
+
+    # Determine dataset format and load
+    if os.path.exists(coco_json[dataset_name]):
+        dataset_file = coco_json[dataset_name]
+        dataset_path = coco_image[dataset_name]
+        dataset = fo.Dataset.from_dir(
+            dataset_type=fo.types.COCODetectionDataset,
+            data_path=dataset_path,
+            labels_path=dataset_file,
+        )
+    elif os.path.exists(dataset_yaml):
+        dataset_file = dataset_yaml
+        dataset_conf = yaml.safe_load(Path('data.yml').read_text())
+        dataset_path = os.path.join(dataset_conf['path'], dataset_conf[dataset_name])
+        classes = dataset_conf['names']
+        dataset = fo.Dataset.from_dir(
+            dataset_type=fo.types.YOLOv4Dataset,
+            data_path=os.path.join(dataset_path, yolo_paths['images']),
+            labels_path=os.path.join(dataset_path, yolo_paths['labels']),
+            classes=classes,
+            name=dataset_name,
+        )
+    else:
+        raise ValueError("Loading dataset failed: Not found!")
+
+    # Predictor ready
+    predictor = DefaultPredictor(cfg)
+    # Run inference and add predictions
+    with fo.ProgressBar() as pb:
+        for sample in pb(dataset):
+            predictions = predictor(fo.utils.image_to_numpy(sample["filepath"]))
+            detections = fo.utils.detectron2_to_detections(predictions["instances"])
+            sample["predictions"] = detections
+            sample.save()
+
+    # Evaluate predictions
+    results = dataset.evaluate_detections(
+        "predictions",
+        gt_field="ground_truth",
+        eval_key="eval",
+        compute_mAP=True
+    )
+
+    print(results)
+
+    # Visualize results
+    session = fo.launch_app(dataset)
+    session.wait()
+
 def evaluate(cfg, parsed=None, dataset_name="test"):
-    cfg.DATASETS.TEST = ("test",)
+    cfg.DATASETS.TEST = (dataset_name,)
     if parsed.weights_path:
         weights_path = parsed.weights_path
     else:
@@ -274,9 +336,9 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
         }
         all_predictions.append(predictions)
 
-    results = inference_on_dataset(predictor.model, test_loader, evaluator)
-    print(results)
-    print(f"Number of small, medium, and large objects: {small_count}, {medium_count}, {large_count}")
+    # results = inference_on_dataset(predictor.model, test_loader, evaluator)
+    # print(results)
+    # print(f"Number of small, medium, and large objects: {small_count}, {medium_count}, {large_count}")
 
     precision, recall, thresholds = compute_precision_recall(all_ground_truths, all_predictions)
 
@@ -288,10 +350,10 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
     plt.legend()
     plt.show()
 
-    return results
+    # return results
 
 
-def compute_precision_recall(ground_truths, predictions, iou_threshold=0.5):
+def compute_precision_recall(ground_truths, predictions, iou_threshold=0.8):
     all_true_labels = []
     all_scores = []
 
@@ -367,7 +429,8 @@ def load_and_filter_dataset(json_file, image_root, dataset_name, filter_cb=False
 choices_map = {
     'train': train,
     'predict': predict,
-    'evaluate': evaluate
+    'evaluate': evaluate,
+    'evaluate_fo': evaluate_fo
 }
 choices = choices_map.keys()
 
