@@ -3,7 +3,15 @@ Breast cancer detection using mammography images, utilizing deep learning models
 
 # Prerequisites
 * Nvidia CUDA drivers
+  * Install a PyTorch compatible version of CUDA from:
+    * Your Linux repository
+    ```commandline
+    apt install nvidia-cuda-toolkit
+    ```
+    * NVIDIA website for Windows and Linux
+      * [Link to download page](https://developer.nvidia.com/cuda-downloads)
 * Pytorch with CUDA support
+  * Visit [PyTorch website](https://pytorch.org/get-started/locally/) for more information
 
 These two must be installed __manually__ or else will break installation of other requirements later on.   
 
