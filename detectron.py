@@ -336,9 +336,9 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
         }
         all_predictions.append(predictions)
 
-    # results = inference_on_dataset(predictor.model, test_loader, evaluator)
-    # print(results)
-    # print(f"Number of small, medium, and large objects: {small_count}, {medium_count}, {large_count}")
+    results = inference_on_dataset(predictor.model, test_loader, evaluator)
+    print(results)
+    print(f"Number of small, medium, and large objects: {small_count}, {medium_count}, {large_count}")
 
     precision, recall, thresholds = compute_precision_recall(all_ground_truths, all_predictions)
 
@@ -350,7 +350,7 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
     plt.legend()
     plt.show()
 
-    # return results
+    return results
 
 
 def compute_precision_recall(ground_truths, predictions, iou_threshold=0.8):
