@@ -9,7 +9,6 @@ SimpleITK
 scikit-image
 patch
 git+https://github.com/facebookresearch/detectron2.git
-torch
 argparse
 Cython
 cloudpickle
