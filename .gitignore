@@ -1,4 +1,10 @@
 # Project specific files
+bin/
+lib64
+pyvenv.cfg
+test/
+train/
+val/
 datasets/
 images/
 labels/
