@@ -28,7 +28,9 @@ scipy
 ipywidgets
 ipython
 tqdm
+torch
 torchvision
+torchaudio
 PyYAML
 albumentations
 prompt_toolkit
