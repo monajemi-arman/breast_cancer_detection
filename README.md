@@ -1,6 +1,12 @@
 # Breast_Cancer_Detection
 Breast cancer detection using mammography images, utilizing deep learning models
 
+# Prerequisites
+* Nvidia CUDA drivers
+* Pytorch with CUDA support
+
+These two must be installed __manually__ or else will break installation of other requirements later on.   
+
 # Datasets
 
 Supported datasets:
