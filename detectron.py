@@ -266,7 +266,7 @@ def evaluate_test_to_coco(cfg, parsed=None):
                 "id": len(results_json['annotations']) + 1,
                 "image_id": image_id,
                 "category_id": int(cls),
-                "bbox": [float(x), float(y), float(w), float(h)],
+                "bbox": [float(x), float(y), float(w) - float(x), float(h) - float(y)],
                 "score": float(score),
             })
 
