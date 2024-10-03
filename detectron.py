@@ -214,12 +214,67 @@ def predict(cfg, parsed):
     image = cv2.imread(image_path)
     predictions = predictor(image)
     dataset_path = get_dataset_path(image_path, coco_json)
-    if os.path.exists(dataset_path):
+    if dataset_path and os.path.exists(dataset_path):
         file_name = Path(image_path).parts[-1]
         visualize_predictions(image, predictions, dataset_path=dataset_path, file_name=file_name)
     else:
         visualize_predictions(image, predictions)
 
+def evaluate_test_to_coco(cfg, parsed=None):
+    if parsed.weights_path:
+        weights_path = parsed.weights_path
+    else:
+        weights_path = input("Enter weights path: ")
+
+    cfg.MODEL.WEIGHTS = weights_path
+    predictor = DefaultPredictor(cfg)
+
+    image_dir = coco_image['test']
+
+    results_json = {
+        "images": [],
+        "annotations": [],
+        "categories": [{"id": i, "name": str(i)} for i in range(len(MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes))],
+    }
+
+    # Read images from the specified directory
+    image_paths = list(Path(image_dir).glob("*.jpg")) + list(Path(image_dir).glob("*.png"))
+
+    for image_path in image_paths:
+        image = cv2.imread(str(image_path))
+        if image is None:
+            print(f"Warning: Unable to load image {image_path}. Skipping.")
+            continue
+
+        predictions = predictor(image)
+        pred_boxes = predictions['instances'].pred_boxes.tensor.cpu().numpy()
+        scores = predictions['instances'].scores.cpu().numpy()
+        pred_classes = predictions['instances'].pred_classes.cpu().numpy()
+
+        image_id = image_path.stem
+
+        results_json['images'].append({
+            "id": image_id,
+            "file_name": image_path.name,
+            "width": image.shape[1],
+            "height": image.shape[0],
+        })
+
+        for box, score, cls in zip(pred_boxes, scores, pred_classes):
+            x, y, w, h = box
+            results_json['annotations'].append({
+                "id": len(results_json['annotations']) + 1,
+                "image_id": image_id,
+                "category_id": int(cls),
+                "bbox": [float(x), float(y), float(w), float(h)],
+                "score": float(score),
+            })
+
+    output_json_path = parsed.output_path if parsed.output_path else "predictions.json"
+    with open(output_json_path, 'w') as json_file:
+        json.dump(results_json, json_file, indent=4)
+
+    print(f"Predictions saved to {output_json_path}")
 
 def evaluate_fo(cfg, parsed=None, dataset_name="test"):
     cfg.DATASETS.TEST = (dataset_name,)
@@ -430,7 +485,8 @@ choices_map = {
     'train': train,
     'predict': predict,
     'evaluate': evaluate,
-    'evaluate_fo': evaluate_fo
+    'evaluate_fo': evaluate_fo,
+    'evaluate_test_to_coco': evaluate_test_to_coco
 }
 choices = choices_map.keys()
 
@@ -438,10 +494,12 @@ choices = choices_map.keys()
 def main():
     global pretrained_weights_path
     argparser = ArgumentParser()
-    argparser.add_argument('-c', '--choice', help="Mode of program: train / predict / evaluate", type=str)
+    argparser.add_argument('-c', '--choice',
+                           help="Modes of program: train, predict, evaluate, evaluate_fo, evaluate_dataset_to_coco",
+                           type=str)
     argparser.add_argument('-i', '--image-path', type=str)
     argparser.add_argument('-w', '--weights-path', type=str)
-    argparser.add_argument('-o', '--output-path', type=str, default="output_of_detectron.jpg")
+    argparser.add_argument('-o', '--output-path', type=str)
     parsed = argparser.parse_args()
 
     choice = None
@@ -455,7 +513,7 @@ def main():
         output_path = parsed.output_path
 
     while choice not in choices:
-        choice = input("Enter mode (train | evaluate | predict): ").lower()
+        choice = input("Enter mode (train, evaluate, predict, evaluate_fo, evaluate_dataset_to_coco): ").lower()
 
     device = 'cpu'
     if torch.cuda.is_available():
