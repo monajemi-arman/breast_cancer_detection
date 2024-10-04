@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button
 import json
+from torchvision.ops import box_iou
 
 # --- Parameters --- #
 # Trainer
@@ -335,24 +336,17 @@ def evaluate_fo(cfg, parsed=None, dataset_name="test"):
 
 def evaluate(cfg, parsed=None, dataset_name="test"):
     cfg.DATASETS.TEST = (dataset_name,)
-    if parsed.weights_path:
-        weights_path = parsed.weights_path
-    else:
-        weights_path = input("Enter weights path: ")
-    cfg.MODEL.WEIGHTS = weights_path
+    cfg.MODEL.WEIGHTS = parsed.weights_path if parsed.weights_path else input("Enter weights path: ")
 
     if dataset_name not in DatasetCatalog.list():
         raise ValueError(f"Dataset '{dataset_name}' is not registered.")
 
     evaluator = COCOEvaluator(dataset_name, cfg, False, output_dir="./output/")
     test_loader = build_detection_test_loader(cfg, dataset_name)
-
     predictor = DefaultPredictor(cfg)
 
-    all_ground_truths = []
-    all_predictions = []
-
-    small_count, medium_count, large_count = 0, 0, 0  # Initialize counters for small, medium, large objects
+    all_ground_truths, all_predictions = [], []
+    small_count, medium_count, large_count = 0, 0, 0
 
     for inputs in test_loader:
         # Get ground truth annotations
@@ -360,43 +354,42 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
         annotations = DatasetCatalog.get(dataset_name)[image_id].get("annotations", [])
 
         # Prepare ground truth bounding boxes and classes
-        gt_boxes = [ann["bbox"] for ann in annotations]
+        gt_boxes = []
         gt_classes = [ann["category_id"] for ann in annotations]
+
+        # Some images have wrong shapes for unknown reasons
+        x_ratio = inputs[0]['image'].shape[2] / inputs[0]['width']
+        y_ratio = inputs[0]['image'].shape[1] / inputs[0]['height']
+
+        for ann in annotations:
+            # Convert (x, y, w, h) to (x1, y1, x2, y2)
+            x, y, w, h = ann["bbox"]
+            x *= x_ratio
+            y *= y_ratio
+            w *= x_ratio
+            h *= y_ratio
+            gt_boxes.append([x, y, x + w, y + h])  # Convert to (x1, y1, x2, y2)
+
         all_ground_truths.append({"boxes": gt_boxes, "classes": gt_classes})
 
-        # Count small, medium, and large objects based on bounding box areas
-        for bbox in gt_boxes:
-            width, height = bbox[2], bbox[3]
-            area = width * height
-            if area < 1024:
-                small_count += 1
-            elif 1024 <= area < 9216:
-                medium_count += 1
-            else:
-                large_count += 1
-
         # Get predictions
-        outputs = predictor(
-            np.transpose(inputs[0]["image"]
-                         .numpy(),
-                         (1, 2, 0))
-        )
+        outputs = predictor(np.transpose(inputs[0]["image"].numpy(), (1, 2, 0)))
         pred_boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()
         scores = outputs["instances"].scores.cpu().numpy()
         pred_classes = outputs["instances"].pred_classes.cpu().numpy()
 
-        predictions = {
-            "boxes": pred_boxes,
-            "scores": scores,
-            "classes": pred_classes
-        }
+        # Collect predictions
+        predictions = {"boxes": pred_boxes, "scores": scores, "classes": pred_classes}
         all_predictions.append(predictions)
+
+    # Final results
+    print(f"Total ground truths: {len(all_ground_truths)}, Total predictions: {len(all_predictions)}")
 
     results = inference_on_dataset(predictor.model, test_loader, evaluator)
     print(results)
     print(f"Number of small, medium, and large objects: {small_count}, {medium_count}, {large_count}")
 
-    precision, recall, thresholds = compute_precision_recall(all_ground_truths, all_predictions)
+    precision, recall, _ = compute_precision_recall(all_ground_truths, all_predictions)
 
     plt.figure()
     plt.plot(recall, precision, label="Precision-Recall Curve")
@@ -408,32 +401,33 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
 
     return results
 
-
-def compute_precision_recall(ground_truths, predictions, iou_threshold=0.8):
+def compute_precision_recall(ground_truths, predictions, iou_threshold=0.3):
     all_true_labels = []
     all_scores = []
 
     for gt, pred in zip(ground_truths, predictions):
-        gt_boxes = gt["boxes"]
-        pred_boxes = pred["boxes"]
-        pred_scores = pred["scores"]
+        gt_boxes = torch.tensor(gt["boxes"], dtype=torch.float32)
+        pred_boxes = torch.tensor(pred["boxes"], dtype=torch.float32)
+        pred_scores = torch.tensor(pred["scores"], dtype=torch.float32)
 
-        # Sort predictions by score in descending order
-        sorted_indices = np.argsort(pred_scores)[::-1]
-        pred_boxes = pred_boxes[sorted_indices]
-        pred_scores = pred_scores[sorted_indices]
+        if len(gt_boxes) == 0 or len(pred_boxes) == 0:
+            true_labels = torch.zeros(len(pred_boxes), dtype=bool)
+            all_true_labels.extend(true_labels.tolist())
+            all_scores.extend(pred_scores.tolist())
+            continue
 
-        true_labels = np.zeros(len(pred_boxes), dtype=bool)
+        # Compute IoUs
+        iou_matrix = box_iou(pred_boxes, gt_boxes)
 
-        for i, pred_box in enumerate(pred_boxes):
-            for gt_box in gt_boxes:
-                iou = calculate_iou(pred_box, gt_box)
-                if iou >= iou_threshold:
-                    true_labels[i] = True
-                    break
+        true_labels = torch.zeros(len(pred_boxes), dtype=bool)
 
-        all_true_labels.extend(true_labels)
-        all_scores.extend(pred_scores)
+        for i in range(len(pred_boxes)):
+            max_iou = iou_matrix[i].max().item()
+            if max_iou >= iou_threshold:
+                true_labels[i] = True
+
+        all_true_labels.extend(true_labels.tolist())
+        all_scores.extend(pred_scores.tolist())
 
     all_true_labels = np.array(all_true_labels)
     all_scores = np.array(all_scores)
@@ -441,7 +435,6 @@ def compute_precision_recall(ground_truths, predictions, iou_threshold=0.8):
     precision, recall, thresholds = precision_recall_curve(all_true_labels, all_scores)
 
     return precision, recall, thresholds
-
 
 def calculate_iou(box1, box2):
     # Convert XYWH format to XYXY format
