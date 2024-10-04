@@ -5,11 +5,12 @@ import sys
 from pathlib import Path
 from sys import stderr
 import fiftyone as fo
-import cv2
+import matplotlib
 import numpy as np
 import torch
 import torchvision
 import torchvision.transforms as transforms
+import cv2
 import detectron2
 import yaml
 from detectron2.utils.logger import setup_logger
