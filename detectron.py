@@ -401,7 +401,7 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
 
     return results
 
-def compute_precision_recall(ground_truths, predictions, iou_threshold=0.3):
+def compute_precision_recall(ground_truths, predictions, iou_threshold=0.5):
     all_true_labels = []
     all_scores = []
 
