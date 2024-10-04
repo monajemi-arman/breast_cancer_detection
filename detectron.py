@@ -1,35 +1,28 @@
 #!/usr/bin/env python
 # Train Faster R-CNN model using Detectron
+import json
 import os
 import sys
+from argparse import ArgumentParser
 from pathlib import Path
-from sys import stderr
+
+import cv2
 import fiftyone as fo
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torchvision
-import torchvision.transforms as transforms
-import cv2
-import detectron2
 import yaml
-from detectron2.utils.logger import setup_logger
-from detectron2 import model_zoo
-from detectron2.engine import DefaultTrainer, DefaultPredictor
-from detectron2.config import get_cfg
-from detectron2.structures import BoxMode
-from detectron2.data import DatasetCatalog, MetadataCatalog
-from detectron2.evaluation import COCOEvaluator, inference_on_dataset, LVISEvaluator
-from detectron2.data import build_detection_test_loader
-from detectron2.utils.visualizer import ColorMode
-from detectron2.data.datasets.coco import load_coco_json
-from sklearn.metrics import precision_recall_curve
-from argparse import ArgumentParser
 from cloudpickle import pickle
-import matplotlib.pyplot as plt
+from detectron2 import model_zoo
+from detectron2.config import get_cfg
+from detectron2.data import DatasetCatalog, MetadataCatalog
+from detectron2.data import build_detection_test_loader
+from detectron2.data.datasets.coco import load_coco_json
+from detectron2.engine import DefaultTrainer, DefaultPredictor
+from detectron2.evaluation import COCOEvaluator, inference_on_dataset
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button
-import json
+from sklearn.metrics import precision_recall_curve
 from torchvision.ops import box_iou
 
 # --- Parameters --- #
