@@ -34,3 +34,13 @@ torchaudio
 PyYAML
 albumentations
 prompt_toolkit
+
+attrs
+protobuf
+tornado
+Jinja2
+filelock
+future
+platformdirs
+seaborn
+scikit-learn
