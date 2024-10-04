@@ -118,15 +118,40 @@ Example of prediction using YOLO ultralytics framework:
 yolo predict model=runs/detect/train/weights/best.pt source=images/cb_1.jpg conf=0.1 
 ```
 ---
-# Faster R-CNN (Using Detectron2)
-* **Install prerequisites**
+# Detectron (Faster R-CNN)
+* **Install prerequisites** (included in requirements.txt)
 ```bash
 pip install detectron2
 ```
 ## Train
-The purpose of detectron.py is to train and evaluate a Faster R-CNN model using detectron2 platform.
+The purpose of detectron.py is to train and evaluate a Faster R-CNN model and predict using detectron2 platform.
 ```bash
-python detectron.py
+python detectron.py -c train
+```
+## Predict
+* Visualize model prediction
+* Show ground truth and labels
+* Filter predictions by confidence score
+``` bash
+# After training is complete
+python detectron.py -c predict -w output/model_final.pth -i <image path>
+# -w: path to model weights
+```
+![detectron prediction visualizer](demo/detectron_predict_visualize.png)
+
+## Evaluate
+### Evaluation using COCOEvaluator
+* Calculate mAP
+* Uses test dataset by default
+```bash
+python detectron.py -c evaluate -w output/model_final.pth
+```
+### Save predictions in COCO style JSON 
+* Suitable for later offline metrics calculation
+* All predictions of the test dataset will be written to predicions.json
+* Follows COCO format
+```bash
+python detectron.py -c evaluate_test_to_coco -w output/model_final.pth
 ```
 
 ---
