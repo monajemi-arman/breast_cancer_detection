@@ -282,43 +282,49 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
 
     all_ground_truths, all_predictions = [], []
     small_count, medium_count, large_count = 0, 0, 0
+    correct_predictions = 0
+    total_predictions = 0
 
     for inputs in test_loader:
-        # Get ground truth annotations
         image_id = inputs[0]["image_id"]
         annotations = DatasetCatalog.get(dataset_name)[image_id].get("annotations", [])
 
-        # Prepare ground truth bounding boxes and classes
         gt_boxes = []
         gt_classes = [ann["category_id"] for ann in annotations]
 
-        # Some images have wrong shapes for unknown reasons
         x_ratio = inputs[0]['image'].shape[2] / inputs[0]['width']
         y_ratio = inputs[0]['image'].shape[1] / inputs[0]['height']
 
         for ann in annotations:
-            # Convert (x, y, w, h) to (x1, y1, x2, y2)
             x, y, w, h = ann["bbox"]
             x *= x_ratio
             y *= y_ratio
             w *= x_ratio
             h *= y_ratio
-            gt_boxes.append([x, y, x + w, y + h])  # Convert to (x1, y1, x2, y2)
+            gt_boxes.append([x, y, x + w, y + h])
 
         all_ground_truths.append({"boxes": gt_boxes, "classes": gt_classes})
 
-        # Get predictions
         outputs = predictor(np.transpose(inputs[0]["image"].numpy(), (1, 2, 0)))
         pred_boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()
         scores = outputs["instances"].scores.cpu().numpy()
         pred_classes = outputs["instances"].pred_classes.cpu().numpy()
 
-        # Collect predictions
         predictions = {"boxes": pred_boxes, "scores": scores, "classes": pred_classes}
         all_predictions.append(predictions)
 
-    # Final results
+        for pred_class in pred_classes:
+            total_predictions += 1
+            if pred_class in gt_classes:
+                correct_predictions += 1
+
     print(f"Total ground truths: {len(all_ground_truths)}, Total predictions: {len(all_predictions)}")
+
+    if total_predictions > 0:
+        accuracy = (correct_predictions / total_predictions) * 100
+    else:
+        accuracy = 0.0
+    print(f"Accuracy: {accuracy:.2f}%")
 
     results = inference_on_dataset(predictor.model, test_loader, evaluator)
     print(results)
