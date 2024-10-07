@@ -7,11 +7,9 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import cv2
-import fiftyone as fo
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import yaml
 from cloudpickle import pickle
 from detectron2 import model_zoo
 from detectron2.config import get_cfg
@@ -271,62 +269,6 @@ def evaluate_test_to_coco(cfg, parsed=None):
 
     print(f"Predictions saved to {output_json_path}")
 
-def evaluate_fo(cfg, parsed=None, dataset_name="test"):
-    cfg.DATASETS.TEST = (dataset_name,)
-    if parsed.weights_path:
-        weights_path = parsed.weights_path
-    else:
-        weights_path = input("Enter weights path: ")
-    cfg.MODEL.WEIGHTS = weights_path
-
-    # Determine dataset format and load
-    if os.path.exists(coco_json[dataset_name]):
-        dataset_file = coco_json[dataset_name]
-        dataset_path = coco_image[dataset_name]
-        dataset = fo.Dataset.from_dir(
-            dataset_type=fo.types.COCODetectionDataset,
-            data_path=dataset_path,
-            labels_path=dataset_file,
-        )
-    elif os.path.exists(dataset_yaml):
-        dataset_file = dataset_yaml
-        dataset_conf = yaml.safe_load(Path('data.yml').read_text())
-        dataset_path = os.path.join(dataset_conf['path'], dataset_conf[dataset_name])
-        classes = dataset_conf['names']
-        dataset = fo.Dataset.from_dir(
-            dataset_type=fo.types.YOLOv4Dataset,
-            data_path=os.path.join(dataset_path, yolo_paths['images']),
-            labels_path=os.path.join(dataset_path, yolo_paths['labels']),
-            classes=classes,
-            name=dataset_name,
-        )
-    else:
-        raise ValueError("Loading dataset failed: Not found!")
-
-    # Predictor ready
-    predictor = DefaultPredictor(cfg)
-    # Run inference and add predictions
-    with fo.ProgressBar() as pb:
-        for sample in pb(dataset):
-            predictions = predictor(fo.utils.image_to_numpy(sample["filepath"]))
-            detections = fo.utils.detectron2_to_detections(predictions["instances"])
-            sample["predictions"] = detections
-            sample.save()
-
-    # Evaluate predictions
-    results = dataset.evaluate_detections(
-        "predictions",
-        gt_field="ground_truth",
-        eval_key="eval",
-        compute_mAP=True
-    )
-
-    print(results)
-
-    # Visualize results
-    session = fo.launch_app(dataset)
-    session.wait()
-
 def evaluate(cfg, parsed=None, dataset_name="test"):
     cfg.DATASETS.TEST = (dataset_name,)
     cfg.MODEL.WEIGHTS = parsed.weights_path if parsed.weights_path else input("Enter weights path: ")
@@ -472,7 +414,6 @@ choices_map = {
     'train': train,
     'predict': predict,
     'evaluate': evaluate,
-    'evaluate_fo': evaluate_fo,
     'evaluate_test_to_coco': evaluate_test_to_coco
 }
 choices = choices_map.keys()
