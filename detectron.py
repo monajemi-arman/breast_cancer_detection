@@ -12,6 +12,7 @@ import numpy as np
 import torch
 from cloudpickle import pickle
 from detectron2 import model_zoo
+from detectron2.modeling import build_model
 from detectron2.config import get_cfg
 from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.data import build_detection_test_loader
@@ -416,11 +417,20 @@ def load_and_filter_dataset(json_file, image_root, dataset_name, filter_cb=False
 
     return loaded_dataset
 
+def export_model(cfg, parsed=None):
+    cfg.MODEL.WEIGHTS = parsed.weights_path if parsed.weights_path else input("Enter weights path: ")
+    output_path = parsed.output_path if parsed.output_path else 'detectron_as_pytorch_model_output.pkl'
+    model = build_model(cfg)
+    with open(output_path, 'wb') as f:
+        pickle.dump(model, f)
+    print("Current model saved to:", output_path)
+
 choices_map = {
     'train': train,
     'predict': predict,
     'evaluate': evaluate,
-    'evaluate_test_to_coco': evaluate_test_to_coco
+    'evaluate_test_to_coco': evaluate_test_to_coco,
+    'export_model': export_model
 }
 choices = choices_map.keys()
 
@@ -429,7 +439,7 @@ def main():
     global pretrained_weights_path
     argparser = ArgumentParser()
     argparser.add_argument('-c', '--choice',
-                           help="Modes of program: train, predict, evaluate, evaluate_fo, evaluate_dataset_to_coco",
+                           help="Modes of program: train, predict, evaluate, evaluate_dataset_to_coco, export_model",
                            type=str)
     argparser.add_argument('-i', '--image-path', type=str)
     argparser.add_argument('-w', '--weights-path', type=str)
@@ -447,7 +457,8 @@ def main():
         output_path = parsed.output_path
 
     while choice not in choices:
-        choice = input("Enter mode (train, evaluate, predict, evaluate_fo, evaluate_dataset_to_coco): ").lower()
+        choice = (input("Enter mode (train, evaluate, predict, evaluate_fo, evaluate_dataset_to_coco, export_model): ")
+                  .lower())
 
     device = 'cpu'
     if torch.cuda.is_available():

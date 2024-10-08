@@ -139,6 +139,20 @@ python detectron.py -c predict -w output/model_final.pth -i <image path>
 ```
 ![detectron prediction visualizer](demo/detectron_predict_visualize.png)
 
+## Web Application
+### Usage
+1. Run train step as explained above
+2. Copy 'detectron.cfg.pkl' and the last model checkpoint to webapp/ directory.  
+\* Last model checkpoint file name is written in output/last_checkpoint
+3. Run the following:
+```bash
+cd webapp/
+python web.py
+```
+4. Then visit http://127.0.0.1:33517
+  
+![](demo/webapp.png)
+
 ## Evaluate
 ### Evaluation using COCOEvaluator
 * Calculate mAP
@@ -146,7 +160,8 @@ python detectron.py -c predict -w output/model_final.pth -i <image path>
 ```bash
 python detectron.py -c evaluate -w output/model_final.pth
 ```
-### Save predictions in COCO style JSON 
+![](demo/pr_curve.jpg)
+### Save predictions in COCO style JSON (optional)
 * Suitable for later offline metrics calculation
 * All predictions of the test dataset will be written to predicions.json
 * Follows COCO format
@@ -155,7 +170,7 @@ python detectron.py -c evaluate_test_to_coco -w output/model_final.pth
 ```
 
 ---
-# UaNet
+# UaNet (Deprecated)
 ## Training
 * Clone UaNet repository (patched)
 ```bash

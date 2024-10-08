@@ -11,6 +11,7 @@ labels/
 masks/
 archive/
 *.pt
+*.pth
 *.yaml
 *.cache
 runs/

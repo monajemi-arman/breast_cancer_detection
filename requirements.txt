@@ -44,3 +44,6 @@ future
 platformdirs
 seaborn
 scikit-learn
+Flask
+imageio
+waitress
