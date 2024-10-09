@@ -2,9 +2,8 @@
 import argparse
 from pathlib import Path
 import cloudpickle as pickle
-import cv2
-import torch
 import matplotlib.pyplot as plt
+import torch
 from detectron2.engine import DefaultPredictor
 
 # Parameters
