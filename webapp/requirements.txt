@@ -1,0 +1,11 @@
+git+https://github.com/facebookresearch/detectron2.git
+flask
+Pillow
+waitress
+numpy
+cloudpickle
+torch
+torchvision
+torchaudio
+matplotlib
+opencv-python
