@@ -42,7 +42,7 @@ def overlay_predictions(image, predictions, confidence_threshold=0.5):
     for box, score, cls in zip(filtered_boxes, filtered_scores, filtered_classes):
         x1, y1, x2, y2 = box
         thickness = max(6, int(6 * scale_factor))
-        font_scale = max(1.25, 1.25 * scale_factor)
+        font_scale = max(0.5, 1 * scale_factor)
 
         cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), color=(0, 0, 255), thickness=thickness)
         label = f'Class: {cls}, Score: {score:.2f}'
