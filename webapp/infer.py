@@ -45,7 +45,7 @@ def overlay_predictions(image, predictions, confidence_threshold=0.5):
 
         cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), color=(0, 0, 255), thickness=thickness)
         label = f'Class: {cls}, Score: {score:.2f}'
-        cv2.putText(image, label, (int(x1), int(y1) - 10), cv2.FONT_ITALIC, font_scale, (255, 255, 0),
+        cv2.putText(image, label, (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 0),
                     thickness)
 
     return image
