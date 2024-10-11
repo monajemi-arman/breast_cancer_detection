@@ -270,6 +270,26 @@ def evaluate_test_to_coco(cfg, parsed=None):
 
     print(f"Predictions saved to {output_json_path}")
 
+
+import numpy as np
+from collections import defaultdict
+from detectron2.evaluation import COCOEvaluator
+from detectron2.data import build_detection_test_loader, DatasetCatalog
+from detectron2.engine import DefaultPredictor
+from detectron2.evaluation import inference_on_dataset
+import matplotlib.pyplot as plt
+
+
+def compute_ap(precision, recall):
+    mrec = np.concatenate(([0.], recall, [1.]))
+    mpre = np.concatenate(([0.], precision, [0.]))
+    for i in range(mpre.size - 1, 0, -1):
+        mpre[i - 1] = np.maximum(mpre[i - 1], mpre[i])
+    i = np.where(mrec[1:] != mrec[:-1])[0]
+    ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
+    return ap
+
+
 def evaluate(cfg, parsed=None, dataset_name="test"):
     cfg.DATASETS.TEST = (dataset_name,)
     cfg.MODEL.WEIGHTS = parsed.weights_path if parsed.weights_path else input("Enter weights path: ")
@@ -281,67 +301,106 @@ def evaluate(cfg, parsed=None, dataset_name="test"):
     test_loader = build_detection_test_loader(cfg, dataset_name)
     predictor = DefaultPredictor(cfg)
 
-    all_ground_truths, all_predictions = [], []
-    small_count, medium_count, large_count = 0, 0, 0
-    correct_predictions = 0
-    total_predictions = 0
+    all_ground_truths = defaultdict(list)
+    all_predictions = defaultdict(list)
+    class_counts = defaultdict(int)
 
     for inputs in test_loader:
         image_id = inputs[0]["image_id"]
         annotations = DatasetCatalog.get(dataset_name)[image_id].get("annotations", [])
 
-        gt_boxes = []
-        gt_classes = [ann["category_id"] for ann in annotations]
-
         x_ratio = inputs[0]['image'].shape[2] / inputs[0]['width']
         y_ratio = inputs[0]['image'].shape[1] / inputs[0]['height']
 
         for ann in annotations:
+            class_id = ann["category_id"]
             x, y, w, h = ann["bbox"]
             x *= x_ratio
             y *= y_ratio
             w *= x_ratio
             h *= y_ratio
-            gt_boxes.append([x, y, x + w, y + h])
-
-        all_ground_truths.append({"boxes": gt_boxes, "classes": gt_classes})
+            all_ground_truths[class_id].append({"bbox": [x, y, x + w, y + h], "used": False})
+            class_counts[class_id] += 1
 
         outputs = predictor(np.transpose(inputs[0]["image"].numpy(), (1, 2, 0)))
         pred_boxes = outputs["instances"].pred_boxes.tensor.cpu().numpy()
         scores = outputs["instances"].scores.cpu().numpy()
         pred_classes = outputs["instances"].pred_classes.cpu().numpy()
 
-        predictions = {"boxes": pred_boxes, "scores": scores, "classes": pred_classes}
-        all_predictions.append(predictions)
-
-        for pred_class in pred_classes:
-            total_predictions += 1
-            if pred_class in gt_classes:
-                correct_predictions += 1
-
-    print(f"Total ground truths: {len(all_ground_truths)}, Total predictions: {len(all_predictions)}")
-
-    if total_predictions > 0:
-        accuracy = (correct_predictions / total_predictions) * 100
-    else:
-        accuracy = 0.0
-    print(f"Accuracy: {accuracy:.2f}%")
+        for box, score, pred_class in zip(pred_boxes, scores, pred_classes):
+            all_predictions[pred_class].append({"bbox": box, "score": score})
 
     results = inference_on_dataset(predictor.model, test_loader, evaluator)
+    print("Detectron2 evaluation results:")
     print(results)
-    print(f"Number of small, medium, and large objects: {small_count}, {medium_count}, {large_count}")
 
-    precision, recall, _ = compute_precision_recall(all_ground_truths, all_predictions)
+    class_ap = {}
+    for class_id in all_ground_truths.keys():
+        gt = all_ground_truths[class_id]
+        pred = sorted(all_predictions[class_id], key=lambda x: x["score"], reverse=True)
 
-    plt.figure()
-    plt.plot(recall, precision, label="Precision-Recall Curve")
-    plt.xlabel('Recall')
-    plt.ylabel('Precision')
-    plt.title('Precision-Recall Curve')
-    plt.legend()
-    plt.show()
+        nd = len(pred)
+        tp = np.zeros(nd)
+        fp = np.zeros(nd)
 
-    return results
+        for i, prediction in enumerate(pred):
+            ovmax = -np.inf
+            gt_match = -1
+
+            for j, gt_box in enumerate(gt):
+                if gt_box["used"]:
+                    continue
+                iou = compute_iou(prediction["bbox"], gt_box["bbox"])
+                if iou > ovmax:
+                    ovmax = iou
+                    gt_match = j
+
+            if ovmax >= 0.5:
+                if not gt[gt_match]["used"]:
+                    tp[i] = 1
+                    gt[gt_match]["used"] = True
+                else:
+                    fp[i] = 1
+            else:
+                fp[i] = 1
+
+        fp = np.cumsum(fp)
+        tp = np.cumsum(tp)
+        rec = tp / float(len(gt))
+        prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+
+        ap = compute_ap(prec, rec)
+        class_ap[class_id] = ap
+
+    mAP = np.mean(list(class_ap.values()))
+
+    print("\nPer-class Average Precision:")
+    for class_id, ap in class_ap.items():
+        print(f"Class {class_id}: AP = {ap:.4f}")
+
+    print(f"\nOverall mAP: {mAP:.4f}")
+
+    return results, class_ap, mAP
+
+
+def compute_iou(box1, box2):
+    x1, y1, x2, y2 = box1
+    x3, y3, x4, y4 = box2
+
+    xi1 = max(x1, x3)
+    yi1 = max(y1, y3)
+    xi2 = min(x2, x4)
+    yi2 = min(y2, y4)
+
+    inter_area = max(xi2 - xi1, 0) * max(yi2 - yi1, 0)
+
+    box1_area = (x2 - x1) * (y2 - y1)
+    box2_area = (x4 - x3) * (y4 - y3)
+
+    union_area = box1_area + box2_area - inter_area
+
+    iou = inter_area / union_area if union_area > 0 else 0
+    return iou
 
 def compute_precision_recall(ground_truths, predictions, iou_threshold=0.5):
     all_true_labels = []
