@@ -100,6 +100,13 @@ python convert_dataset.py
 ```
 After completion, images/, labels/, dataset.yaml, annotations.json would be present in the working directory. 
 
+**5. (optional) Apply additional filters to images**  
+If necessary, you may apply these filters to images using our script: _canny, clahe, gamma, histogram, unsharp  
+You may enter one of the above filters in command line (-f). 
+```python
+python filters.py -i PATH_TO_IMAGE_DIRECTORY -o OUTPUT_IMAGE_DIRECTORY -f FILTER_NAME
+```
+
 ---
 # YOLO
 ## Training
