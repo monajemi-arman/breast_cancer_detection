@@ -126,10 +126,6 @@ yolo predict model=runs/detect/train/weights/best.pt source=images/cb_1.jpg conf
 ```
 ---
 # Detectron (Faster R-CNN)
-* **Install prerequisites** (included in requirements.txt)
-```bash
-pip install detectron2
-```
 ## Train
 The purpose of detectron.py is to train and evaluate a Faster R-CNN model and predict using detectron2 platform.
 ```bash
