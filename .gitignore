@@ -17,7 +17,10 @@ archive/
 runs/
 UaNet-dataset/
 models/
-*.json
+train.json
+test.json
+val.json
+predictions.json
 dataset.yaml
 split/
 *.bak
