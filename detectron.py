@@ -4,25 +4,26 @@ import json
 import os
 import sys
 from argparse import ArgumentParser
+from collections import defaultdict
 from pathlib import Path
-
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from cloudpickle import pickle
 from detectron2 import model_zoo
-from detectron2.modeling import build_model
 from detectron2.config import get_cfg
 from detectron2.data import DatasetCatalog, MetadataCatalog
 from detectron2.data import build_detection_test_loader
 from detectron2.data.datasets.coco import load_coco_json
 from detectron2.engine import DefaultTrainer, DefaultPredictor
 from detectron2.evaluation import COCOEvaluator, inference_on_dataset
+from detectron2.modeling import build_model
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import Slider, Button
 from sklearn.metrics import precision_recall_curve
 from torchvision.ops import box_iou
+from filters import ImageFilterProcessor
 
 # --- Parameters --- #
 # Trainer
@@ -206,6 +207,15 @@ def predict(cfg, parsed):
     cfg.MODEL.WEIGHTS = weights_path
     predictor = DefaultPredictor(cfg)
     image = cv2.imread(image_path)
+
+    # Apply filter if necessary
+    if parsed.filter:
+        processor = ImageFilterProcessor()
+        image = processor.apply_filter(parsed.filter, image)
+        # If gray, get 3 channel image
+        if len(image.shape) == 2:
+            image = np.stack((image,) * 3, axis=-1)
+
     predictions = predictor(image)
     dataset_path = get_dataset_path(image_path, coco_json)
     if dataset_path and os.path.exists(dataset_path):
@@ -269,15 +279,6 @@ def evaluate_test_to_coco(cfg, parsed=None):
         json.dump(results_json, json_file, indent=4)
 
     print(f"Predictions saved to {output_json_path}")
-
-
-import numpy as np
-from collections import defaultdict
-from detectron2.evaluation import COCOEvaluator
-from detectron2.data import build_detection_test_loader, DatasetCatalog
-from detectron2.engine import DefaultPredictor
-from detectron2.evaluation import inference_on_dataset
-import matplotlib.pyplot as plt
 
 
 def compute_ap(precision, recall):
@@ -496,11 +497,15 @@ choices = choices_map.keys()
 
 def main():
     global pretrained_weights_path
+    filter_processor = ImageFilterProcessor()
+    filters_list = filter_processor.filters.keys()
+
     argparser = ArgumentParser()
     argparser.add_argument('-c', '--choice',
                            help="Modes of program: train, predict, evaluate, evaluate_dataset_to_coco, export_model",
                            type=str)
     argparser.add_argument('-i', '--image-path', type=str)
+    argparser.add_argument('-f', '--filter', type=str, choices=filters_list)
     argparser.add_argument('-w', '--weights-path', type=str)
     argparser.add_argument('-o', '--output-path', type=str)
     parsed = argparser.parse_args()
@@ -551,7 +556,6 @@ def main():
     cfg.TEST.EVAL_PERIOD = 500
     if pretrained:
         cfg.MODEL.WEIGHTS = pretrained_weights_path
-
     else:
         cfg.MODEL.WEIGHTS = ""
     cfg.DATALOADER.NUM_WORKERS = num_workers
