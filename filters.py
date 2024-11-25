@@ -1,13 +1,13 @@
 import os
 import cv2
+import json
 import numpy as np
 import argparse
 from pathlib import Path
 from PIL import Image, ImageFilter
 
 class ImageFilterProcessor:
-    def __init__(self):
-        # Mapping filter names to their respective methods
+    def __init__(self, config_file="filter_config.json"):
         self.filters = {
             "canny": self.filter_canny,
             "clahe": self.filter_clahe,
@@ -15,6 +15,18 @@ class ImageFilterProcessor:
             "histogram": self.filter_histogram_normalization,
             "unsharp": self.filter_unsharp_mask
         }
+        self.config = self.load_config(config_file)
+
+    def load_config(self, config_file):
+        try:
+            with open(config_file, "r") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            print(f"Error loading config file: {config_file}. Using default parameters.")
+            return {}
+
+    def get_filter_params(self, filter_name):
+        return self.config.get(filter_name, {})
 
     def filter_canny(self, image, sigma=0.33):
         if len(image.shape) == 3:
@@ -56,12 +68,13 @@ class ImageFilterProcessor:
         unsharp_image = pil_image.filter(ImageFilter.UnsharpMask(radius=radius, percent=percent, threshold=threshold))
         return cv2.cvtColor(np.array(unsharp_image), cv2.COLOR_RGB2BGR)
 
-    def apply_filter(self, filter_name, image, **kwargs):
+    def apply_filter(self, filter_name, image):
         if filter_name not in self.filters:
             print("Filter not found")
             return None
         filter_func = self.filters[filter_name]
-        return filter_func(image, **kwargs)
+        params = self.get_filter_params(filter_name)
+        return filter_func(image, **params)
 
     def process_images_in_folder(self, input_folder, output_folder, filter_name):
         input_path = Path(input_folder)
