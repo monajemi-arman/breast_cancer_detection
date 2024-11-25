@@ -1,0 +1,17 @@
+{
+    "canny": {
+        "sigma": 0.33
+    },
+    "clahe": {
+        "clip_limit": 2.0,
+        "tile_grid_size": [8, 8]
+    },
+    "gamma": {
+        "gamma": 1.5
+    },
+    "unsharp": {
+        "radius": 2,
+        "percent": 150,
+        "threshold": 3
+    }
+}
