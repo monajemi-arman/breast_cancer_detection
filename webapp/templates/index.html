@@ -6,164 +6,123 @@
     <title>Breast Cancer Detection</title>
     <!-- Import Materialize CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
-    <!-- Import Font Awesome for GitHub icon -->
+    <!-- Import Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-    <!-- Import Materialize JavaScript -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
     <style>
         .container {
-            max-width: 50%;
+            max-width: 70%;
             margin: auto;
             padding: 20px;
         }
+        h2, h4 {
+            color: #2c3e50;
+        }
         .image-container {
-            margin-top: 20px;
+            margin-top: 30px;
             text-align: center;
         }
+        .image-container h4 {
+            margin-bottom: 15px;
+        }
+        .image-container img {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 5px;
+        }
+        .btn {
+            background-color: #3498db;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
         .separator {
-            border-top: 1px solid #ccc;
-            margin-top: 20px;
-            margin-bottom: 20px;
-        }
-        .modal {
-            max-width: 80%;
-            max-height: 80%;
-        }
-        .modal-content {
-            padding: 24px;
-        }
-        .modal-close {
-            position: absolute;
-            right: 10px;
-            top: 10px;
-            cursor: pointer;
-        }
-        .demo-images {
-            display: none;
+            border-top: 2px solid #ccc;
+            margin-top: 30px;
+            margin-bottom: 30px;
         }
         .demo-images img {
-            width: 100%;
-            height: auto;
-            cursor: pointer;
+            border: 1px solid #ddd;
             margin-bottom: 20px;
+        }
+        #zoomed-image {
+            max-width: 100%;
+            height: auto;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2 class="center-align">Breast Cancer Detection</h2>
-        <div class="row">
-            <form class="col s12" method="post" enctype="multipart/form-data">
-                <div class="row">
-                    <h5>Choose image...</h5>
-                    <div class="input-field col s12">
-                        <input type="file" id="file" name="file">
-                    </div>
+<div class="container">
+    <h2 class="center-align">Breast Cancer Detection</h2>
+    <div class="row">
+        <form class="col s12" method="post" enctype="multipart/form-data">
+            <div class="row">
+                <h5>Choose an image...</h5>
+                <div class="input-field col s12">
+                    <input type="file" id="file" name="file" required>
                 </div>
-                <div class="row">
-                    <div class="input-field col s12">
-                        <button class="btn waves-effect waves-light" type="submit" name="action">Upload
-                            <i class="material-icons right"></i>
-                        </button>
-                    </div>
+            </div>
+            <div class="row">
+                <h5>Optional: Upload COCO JSON for ground truth annotations</h5>
+                <div class="input-field col s12">
+                    <input type="file" id="gt_file" name="gt_file">
                 </div>
-            </form>
-        </div>
-
-        <!-- Button to Show Demo Images -->
-        <div class="row">
-            <div class="col s12">
-                <button id="show-demo-images" class="btn waves-effect waves-light">Show Demo Images</button>
+            </div>
+            <div class="row">
+                <div class="input-field col s12">
+                    <button class="btn waves-effect waves-light" type="submit" name="action">Upload</button>
+                </div>
+            </div>
+        </form>
+        {% if image_data %}
+        <div class="separator"></div>
+        <div class="row image-container">
+            <div class="col s4">
+                <h4 class="center-align">Input</h4>
+                <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ image_data_orig }}" alt="Original">
+            </div>
+            {% if gt_data %}
+            <div class="col s4">
+                <h4 class="center-align">Ground Truth</h4>
+                <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ gt_data }}" alt="Ground Truth">
+            </div>
+            {% endif %}
+            <div class="col s4">
+                <h4 class="center-align">Prediction</h4>
+                <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ image_data }}" alt="Prediction">
+                <a href="data:image/jpeg;base64,{{ image_data }}" download="prediction.jpg"
+                   class="waves-effect waves-light btn">Download</a>
             </div>
         </div>
-
-        <!-- Demo Images Section -->
-        <div class="row demo-images" id="demo-images-section">
-            <!-- First Row -->
-            <div class="col s3">
-                <img src="/static/images/demo1.jpg" alt="Demo Image 1" download="demo1.jpg" class="responsive-img demo-img">
-            </div>
-            <div class="col s3">
-                <img src="/static/images/demo2.jpg" alt="Demo Image 2" download="demo2.jpg" class="responsive-img demo-img">
-            </div>
-            <div class="col s3">
-                <img src="/static/images/demo3.jpg" alt="Demo Image 3" download="demo3.jpg" class="responsive-img demo-img">
-            </div>
-            <div class="col s3">
-                <img src="/static/images/demo4.jpg" alt="Demo Image 4" download="demo4.jpg" class="responsive-img demo-img">
-            </div>
-        </div>
+        {% endif %}
     </div>
+</div>
 
-    {% if image_data %}
-        <div class="container">
-            <div class="separator"></div>
-            <div class="row image-container">
-                <div class="col s6">
-                    <h4 class="center-align">Input</h4>
-                    <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ image_data_orig }}" alt="Original">
-                </div>
-                <div class="col s6">
-                    <h4 class="center-align">Prediction</h4>
-                    <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ image_data }}" alt="Enhanced">
-                    <a href="data:image/jpeg;base64,{{ image_data }}" download="enhanced.jpg" class="waves-effect waves-light btn">Download</a>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-
-    <!-- Modal for Zoom -->
-    <div id="modal-container" class="modal">
-        <div class="modal-content">
-            <img id="zoomed-image" class="responsive-img">
-            <span id="close-modal" class="modal-close">&times;</span>
-        </div>
+<!-- Modal for Zoom -->
+<div id="modal-container" class="modal">
+    <div class="modal-content">
+        <img id="zoomed-image" class="responsive-img">
+        <span id="close-modal" class="modal-close">&times;</span>
     </div>
+</div>
 
-    <!-- Materialize JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const elems = document.querySelectorAll('.modal');
-            const instances = M.Modal.init(elems, {});
+<!-- Materialize JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize modals
+        const elems = document.querySelectorAll('.modal');
+        M.Modal.init(elems);
 
-            // Show demo images when button is clicked
-            document.getElementById('show-demo-images').addEventListener('click', function() {
-                const demoImagesSection = document.getElementById('demo-images-section');
-                demoImagesSection.style.display = demoImagesSection.style.display === 'none' || demoImagesSection.style.display === '' ? 'block' : 'none';
-            });
-
-            // Add download functionality to demo images
-            const demoImages = document.querySelectorAll('.demo-img');
-            demoImages.forEach(img => {
-                img.addEventListener('click', function() {
-                    const link = document.createElement('a');
-                    link.href = img.getAttribute('src');
-                    link.download = img.getAttribute('download');
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                });
-            });
-
-            // Zoom functionality
-            const zoomableImages = document.querySelectorAll('.zoomable');
-            zoomableImages.forEach(image => {
-                image.addEventListener('click', function() {
-                    const imageData = this.getAttribute('src');
-                    const zoomedImage = document.getElementById('zoomed-image');
-                    zoomedImage.setAttribute('src', imageData);
-                    const modalInstance = M.Modal.getInstance(document.getElementById('modal-container'));
-                    modalInstance.open();
-                });
-            });
-
-            const closeModal = document.getElementById('close-modal');
-            closeModal.addEventListener('click', function() {
+        // Zoom functionality
+        document.querySelectorAll('.zoomable').forEach(image => {
+            image.addEventListener('click', function() {
+                const zoomedImage = document.getElementById('zoomed-image');
+                zoomedImage.setAttribute('src', this.getAttribute('src'));
                 const modalInstance = M.Modal.getInstance(document.getElementById('modal-container'));
-                modalInstance.close();
+                modalInstance.open();
             });
         });
-    </script>
+    });
+</script>
 </body>
 </html>
