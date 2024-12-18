@@ -156,6 +156,20 @@ python web.py
   
 ![](demo/webapp.png)
 
+5. (optional) Use **API**  
+If you wish, API is also available, example:
+```bash
+# Run server
+cd webapp/
+python web.py
+
+# Get predictions
+curl -X POST \
+  -F "file=@input.jpg" \
+  http://localhost:33517/api/v1/predict \
+  | jq -r '.data.inferred_image' | base64 --decode > prediction.jpg
+```
+
 ## Evaluate
 ### Evaluation using COCOEvaluator
 * Calculate mAP
