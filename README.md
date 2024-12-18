@@ -24,7 +24,8 @@ Supported datasets:
 
 Supported models:
 * Generally supported models
-  * YOLO 
+  * Faster R-CNN (Detectron)
+  * YOLO
   * Any model that supports YOLO / COCO style dataset
 * Customized [UaNet](https://github.com/uci-cbcl/UaNet/) for 2D mammography images
 
