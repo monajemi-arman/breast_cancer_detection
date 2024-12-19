@@ -1,0 +1,10 @@
+{
+    "default_context": [
+        {
+            "role": "system",
+            "content": "Enter your default context here as fallback."
+        }
+    ],
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "your_openai_api_key"
+}

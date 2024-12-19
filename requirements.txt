@@ -1,4 +1,3 @@
-fiftyone
 opencv-python
 pillow
 xmltodict
@@ -34,7 +33,6 @@ torchaudio
 PyYAML
 albumentations
 prompt_toolkit
-
 attrs
 protobuf
 tornado
@@ -47,3 +45,4 @@ scikit-learn
 Flask
 imageio
 waitress
+langchain-openai

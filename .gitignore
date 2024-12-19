@@ -21,6 +21,7 @@ train.json
 test.json
 val.json
 predictions.json
+config.json
 dataset.yaml
 split/
 *.bak
