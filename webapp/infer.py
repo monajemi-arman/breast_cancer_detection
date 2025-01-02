@@ -1,4 +1,4 @@
-#!/usr/bin/environ python3
+#!/usr/bin/env python3
 import argparse
 from pathlib import Path
 import cloudpickle as pickle
@@ -55,6 +55,10 @@ def predict(image):
     with open(cfg_path, 'rb') as f:
         cfg = pickle.load(f)
     cfg.MODEL.WEIGHTS = model_path
+
+    # Set the model to run on the chosen device
+    cfg.MODEL.DEVICE = device
+
     predictor = DefaultPredictor(cfg)
     predictions = predictor(image)
     return predictions
