@@ -195,7 +195,7 @@ def train(cfg, parsed=None):
         trainer.resume_or_load(resume=False)
     trainer.train()
 
-def predict(cfg, parsed):
+def predict(cfg, parsed, visualize=True):
     if parsed.image_path:
         image_path = parsed.image_path
     else:
@@ -209,7 +209,7 @@ def predict(cfg, parsed):
     image = cv2.imread(image_path)
 
     # Apply filter if necessary
-    if parsed.filter:
+    if hasattr(parsed, 'filter') and parsed.filter:
         processor = ImageFilterProcessor()
         image = processor.apply_filter(parsed.filter, image)
         # If gray, get 3 channel image
@@ -217,12 +217,16 @@ def predict(cfg, parsed):
             image = np.stack((image,) * 3, axis=-1)
 
     predictions = predictor(image)
-    dataset_path = get_dataset_path(image_path, coco_json)
-    if dataset_path and os.path.exists(dataset_path):
-        file_name = Path(image_path).parts[-1]
-        visualize_predictions(image, predictions, dataset_path=dataset_path, file_name=file_name)
-    else:
-        visualize_predictions(image, predictions)
+
+    if visualize:
+        dataset_path = get_dataset_path(image_path, coco_json)
+        if dataset_path and os.path.exists(dataset_path):
+            file_name = Path(image_path).parts[-1]
+            visualize_predictions(image, predictions, dataset_path=dataset_path, file_name=file_name)
+        else:
+            visualize_predictions(image, predictions)
+
+    return predictions
 
 def evaluate_test_to_coco(cfg, parsed=None):
     if parsed.weights_path:
@@ -565,7 +569,7 @@ def main():
     # (train_size / batch_size) * epochs
     cfg.SOLVER.MAX_ITER = int(train_size / batch_size * epochs)
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(MetadataCatalog.get("train").thing_classes)
-    # Save current config for later use in xai.py
+    # Save current config for later use
     with open(cfg_output, 'wb') as f:
         pickle.dump(cfg, f)
     # ./output
