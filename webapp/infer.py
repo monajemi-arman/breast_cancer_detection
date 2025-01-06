@@ -63,11 +63,13 @@ def predict(image):
     predictions = predictor(image)
     return predictions
 
-def infer(image):
-    preds = predict(image)
-    image_with_overlay = overlay_predictions(image, preds)
-    return image_with_overlay
-
+def infer(image, details=False):
+    predictions = predict(image)
+    image_with_overlay = overlay_predictions(image, predictions)
+    if details:
+        return image_with_overlay, predictions
+    else:
+        return image_with_overlay
 
 if __name__ == '__main__':
     # Input arguments

@@ -68,7 +68,7 @@ def process_image(file, gt_file=None, infer_model=True):
     inferred_data = None
     if infer_model:
         image_array = np.array(img)
-        inferred_array = infer(image_array)
+        inferred_array, predictions = infer(image_array, details=True)
         img_inferred = Image.fromarray(inferred_array)
         inferred_output = io.BytesIO()
         img_inferred.save(inferred_output, format='JPEG')
@@ -77,7 +77,8 @@ def process_image(file, gt_file=None, infer_model=True):
     return {
         "original_image": image_data_orig,
         "ground_truth_image": gt_data,
-        "inferred_image": inferred_data
+        "inferred_image": inferred_data,
+        "predictions": predictions
     }
 
 # Health Check Endpoint
