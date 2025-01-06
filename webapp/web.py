@@ -1,6 +1,7 @@
 import json
 import numpy as np
 from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS  # Import Flask-CORS
 from PIL import Image, ImageDraw
 import io
 import base64
@@ -13,14 +14,15 @@ port = 33517
 
 app = Flask(__name__)
 
+# Enable CORS and allow all hosts
+CORS(app, resources={r"/*": {"origins": "*"}})
+
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'nrrd'}
-
 
 def allowed_file(filename):
     """Validate allowed file types."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
 
 def draw_boxes(image, annotations):
     """Draw bounding boxes on an image."""
@@ -30,7 +32,6 @@ def draw_boxes(image, annotations):
         x, y, width, height = ann['bbox']
         draw.rectangle([x, y, x + width, y + height], outline="red", width=line_width)
     return image
-
 
 def process_image(file, gt_file=None, infer_model=True):
     """
@@ -79,12 +80,10 @@ def process_image(file, gt_file=None, infer_model=True):
         "inferred_image": inferred_data
     }
 
-
 # Health Check Endpoint
 @app.route('/api/v1/health', methods=['GET'])
 def health():
     return jsonify({"status": "success", "message": "API is running"}), 200
-
 
 # Prediction Endpoint
 @app.route('/api/v1/predict', methods=['POST'])
@@ -116,7 +115,6 @@ def predict():
 
     return jsonify({"status": "error", "message": "Invalid file format"}), 400
 
-
 # Ground Truth Visualization Endpoint
 @app.route('/api/v1/ground-truth', methods=['POST'])
 def ground_truth():
@@ -146,7 +144,6 @@ def ground_truth():
 
     return jsonify({"status": "error", "message": "Invalid file format"}), 400
 
-
 # Front-end Endpoint
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
@@ -171,7 +168,6 @@ def upload_file():
             )
 
     return render_template('index.html')
-
 
 if __name__ == '__main__':
     serve(app.wsgi_app, host=host, port=port)
