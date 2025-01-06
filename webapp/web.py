@@ -107,7 +107,8 @@ def predict():
                 "data": {
                     "original_image": result['original_image'],
                     "ground_truth_image": result['ground_truth_image'],
-                    "inferred_image": result['inferred_image']
+                    "inferred_image": result['inferred_image'],
+                    "predictions": result['predictions']
                 }
             }
             return jsonify(response), 200
@@ -165,7 +166,8 @@ def upload_file():
                 message='File uploaded successfully',
                 image_data_orig=result['original_image'],
                 gt_data=result['ground_truth_image'],
-                image_data=result['inferred_image']
+                image_data=result['inferred_image'],
+                predictions=result['predictions']
             )
 
     return render_template('index.html')

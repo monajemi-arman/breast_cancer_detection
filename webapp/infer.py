@@ -5,6 +5,7 @@ import cloudpickle as pickle
 import matplotlib.pyplot as plt
 import torch
 from detectron2.engine import DefaultPredictor
+import json
 
 # Parameters
 # Change these
@@ -63,13 +64,66 @@ def predict(image):
     predictions = predictor(image)
     return predictions
 
-def infer(image, details=False):
+def infer(image, details=True):
     predictions = predict(image)
     image_with_overlay = overlay_predictions(image, predictions)
     if details:
-        return image_with_overlay, predictions
+        predictions_json = convert_predictions_to_json(predictions)
+        return image_with_overlay, predictions_json
     else:
         return image_with_overlay
+
+
+def convert_predictions_to_json(predictions):
+    """
+    Convert object detection predictions to a JSON-serializable format.
+
+    Args:
+        predictions (dict): The predictions dictionary containing `instances`.
+
+    Returns:
+        list: A list of JSON-serializable objects.
+    """
+    instances = predictions.get('instances', None)
+    if instances is None:
+        return []  # Return an empty list if `instances` is not present
+
+    num_instances = len(instances)
+    boxes = (
+        instances.pred_boxes.tensor.cpu().numpy()
+        if hasattr(instances, 'pred_boxes') and hasattr(instances.pred_boxes, 'tensor')
+        else None
+    )
+    scores = (
+        instances.scores.cpu().numpy()
+        if hasattr(instances, 'scores')
+        else None
+    )
+    classes = (
+        instances.pred_classes.cpu().numpy()
+        if hasattr(instances, 'pred_classes')
+        else None
+    )
+
+    output = []
+    for i in range(num_instances):
+        prediction = {}
+        if boxes is not None and len(boxes) > i:
+            prediction["box"] = {
+                "x_min": float(boxes[i][0]),
+                "y_min": float(boxes[i][1]),
+                "x_max": float(boxes[i][2]),
+                "y_max": float(boxes[i][3]),
+            }
+        if scores is not None and len(scores) > i:
+            prediction["score"] = float(scores[i])
+        if classes is not None and len(classes) > i:
+            prediction["class"] = int(classes[i])  # Convert to plain integer
+
+        if prediction:  # Only add if there's at least one field
+            output.append(prediction)
+
+    return output
 
 if __name__ == '__main__':
     # Input arguments
