@@ -7,6 +7,8 @@ import waitress
 import json
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from pathlib import Path
+import time
 
 # Configuration
 language = "Persian"
@@ -15,6 +17,8 @@ port = 33518
 config_json = "config.json"
 config_json_default = "config.json.default"
 CONVERSATIONS_FOLDER = "conversations"
+MAX_CONVERSATIONS = 40
+CLEANUP_THRESHOLD = 20
 
 # Default context
 text_context_prepend = ("Role play: You are a radiologist." +
@@ -36,18 +40,40 @@ API_KEY = config.get("api_key")
 
 app = Flask(__name__)
 
+
 # Conversation storage
 def init_storage():
-    if os.path.exists(CONVERSATIONS_FOLDER):
-        for file in os.listdir(CONVERSATIONS_FOLDER):
-            os.remove(os.path.join(CONVERSATIONS_FOLDER, file))
-    else:
+    if not os.path.exists(CONVERSATIONS_FOLDER):
         os.makedirs(CONVERSATIONS_FOLDER)
+
+
+def cleanup_old_conversations():
+    """Remove oldest conversations when the number of files exceeds the threshold"""
+    conversation_files = []
+    for file in Path(CONVERSATIONS_FOLDER).glob("*.pkl"):
+        conversation_files.append((file, file.stat().st_mtime))
+
+    if len(conversation_files) >= MAX_CONVERSATIONS:
+        # Sort by modification time (oldest first)
+        conversation_files.sort(key=lambda x: x[1])
+
+        # Remove the oldest files until we reach MAX_CONVERSATIONS - CLEANUP_THRESHOLD
+        files_to_remove = len(conversation_files) - (MAX_CONVERSATIONS - CLEANUP_THRESHOLD)
+        for file, _ in conversation_files[:files_to_remove]:
+            try:
+                file.unlink()
+            except Exception as e:
+                print(f"Error removing file {file}: {e}")
+
 
 def save_conversation(conversation_id: str, context: List[dict]):
     file_path = os.path.join(CONVERSATIONS_FOLDER, f"{conversation_id}.pkl")
     with open(file_path, "wb") as file:
         cloudpickle.dump(context, file)
+
+    # Check and cleanup after each save
+    cleanup_old_conversations()
+
 
 def get_conversation(conversation_id: str) -> Optional[List[dict]]:
     file_path = os.path.join(CONVERSATIONS_FOLDER, f"{conversation_id}.pkl")
@@ -55,6 +81,7 @@ def get_conversation(conversation_id: str) -> Optional[List[dict]]:
         with open(file_path, "rb") as file:
             return cloudpickle.load(file)
     return None
+
 
 def convert_to_message(obj: dict):
     role = obj.get("role")
@@ -67,8 +94,10 @@ def convert_to_message(obj: dict):
         return AIMessage(content=content)
     return None
 
+
 def convert_to_dict(message):
     return {"role": message.role, "content": message.content}
+
 
 # LangChain API
 class LangChainAPI:
@@ -81,7 +110,9 @@ class LangChainAPI:
         response = self.llm_chat.invoke(messages)
         return response.content
 
+
 langchain_api = LangChainAPI(api_key=API_KEY, base_url=BASE_URL)
+
 
 @app.route('/generate-response', methods=['POST'])
 def generate_response():
@@ -110,6 +141,7 @@ def generate_response():
         return jsonify({"response": response_content, "conversation_id": conversation_id})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     init_storage()
