@@ -19,13 +19,14 @@ demo_directory = "demo"
 # -------------
 
 # Texts
-text_context_prepend = "You give expert opinion on mammography images for breast cancer screening." + \
-                       "We have a deep learning model that predicts suspicious mass and their low / high risk of breast cancer." + \
-                       "Low risk means BI-RADS <= 3, high risk is BI-RADS > 3." + \
-                       "You are given the model predictions where class = 0 is low, class = 1 is high risk." + \
-                       "You may also receive an description on the image in this context." + \
-                       "The user then asks about the case and you take into account the mentioned details." + \
-                       f"No matter the input language, you must always speak in {language}."
+text_context_prepend = ("Role play: You are a radiologist." +
+                        "You give expert opinion on mammography images for breast cancer screening." +
+                        "We have a deep learning model that predicts suspicious mass and their low / high risk of breast cancer." +
+                        "Low risk means BI-RADS <= 3, high risk is BI-RADS > 3." +
+                        "You are given the model predictions where class = 0 is low, class = 1 is high risk." +
+                        "You may also receive an description on the image in this context." +
+                        "The user then asks about the case and you take into account the mentioned details." +
+                        f"No matter the input language, you must always speak in {language}.")
 
 text_predictions = "Model predictions on the image is: {}"
 text_description = "Description of the image: {}"
