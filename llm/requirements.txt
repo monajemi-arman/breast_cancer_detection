@@ -1,0 +1,4 @@
+chardet
+flask
+waitress
+langchain_openai
