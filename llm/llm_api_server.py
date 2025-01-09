@@ -2,13 +2,14 @@ import os
 import cloudpickle
 from uuid import uuid4
 from typing import List, Optional
+from chardet import UniversalDetector
 from flask import Flask, request, jsonify
 import waitress
 import json
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pathlib import Path
-import time
+from flask_cors import CORS
 
 # Configuration
 language = "Persian"
@@ -16,6 +17,7 @@ host = "0.0.0.0"
 port = 33518
 config_json = "config.json"
 config_json_default = "config.json.default"
+demo_directory = "demo"
 CONVERSATIONS_FOLDER = "conversations"
 MAX_CONVERSATIONS = 40
 CLEANUP_THRESHOLD = 20
@@ -26,7 +28,9 @@ text_context_prepend = ("Role play: You are a radiologist." +
                         "We have a deep learning model that predicts suspicious mass and their low / high risk of breast cancer." +
                         "Low risk means BI-RADS <= 3, high risk is BI-RADS > 3." +
                         "You are given the model predictions where class = 0 is low, class = 1 is high risk." +
-                        f"No matter the input language, you must always speak in {language}.")
+                        f"No matter the input language, you must ALWAYS speak in {language}.")
+text_predictions = "Model predictions on the image is: {}"
+text_description = "Description of the image: {}"
 
 # Load configuration
 if not os.path.exists(config_json):
@@ -39,6 +43,9 @@ BASE_URL = config.get("base_url")
 API_KEY = config.get("api_key")
 
 app = Flask(__name__)
+
+# Enable CORS and allow all hosts
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 
 # Conversation storage
@@ -120,9 +127,26 @@ def generate_response():
         data = request.get_json()
         conversation_id = data.get('conversation_id')
         prompt = data.get('prompt')
+        context = data.get('context')
+        predictions = data.get('predictions')
+        demo = data.get('demo')
 
         if not prompt:
             return jsonify({"error": "Prompt is required."}), 400
+
+        if not context:
+            context = text_context_prepend
+        else:
+            context = text_context_prepend + context
+
+        if predictions:
+            predictions = str(predictions)
+            context += text_predictions.format(predictions)
+
+        if demo:
+            demo_text = demo_get_text(demo)
+            if demo_text:
+                context += text_description.format(demo_text)
 
         if conversation_id:
             context = get_conversation(conversation_id)
@@ -130,7 +154,7 @@ def generate_response():
                 return jsonify({"error": "Invalid conversation ID."}), 400
         else:
             conversation_id = str(uuid4())
-            context = [{"role": "system", "content": text_context_prepend}]
+            context = [{"role": "system", "content": context}]
 
         response_content = langchain_api.generate_response(prompt, context)
         context.append({"role": "user", "content": prompt})
@@ -141,6 +165,34 @@ def generate_response():
         return jsonify({"response": response_content, "conversation_id": conversation_id})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def demo_get_text(demo_file):
+    for demo_text_file in os.listdir(demo_directory):
+        demo_prefix = Path(demo_text_file).stem
+        if demo_prefix in demo_file:
+            demo_text_file_path = os.path.join(demo_directory, demo_text_file)
+            demo_text = read_demo_text_file(demo_text_file_path)
+            return demo_text
+    print("Demo requested but demo directory did not contain the required text file!", file=sys.stderr)
+
+
+def read_demo_text_file(filepath):
+    detector = UniversalDetector()
+
+    with open(filepath, 'rb') as file:
+        for line in file:
+            detector.feed(line)
+            if detector.done:
+                break
+        detector.close()
+
+        encoding = detector.result['encoding']
+        if encoding is None:
+            raise ValueError("Unable to detect file encoding.")
+
+        file.seek(0)
+        return file.read().decode(encoding)
 
 
 if __name__ == "__main__":
