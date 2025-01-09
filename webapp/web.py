@@ -1,7 +1,7 @@
 import json
 import numpy as np
 from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS  # Import Flask-CORS
+from flask_cors import CORS
 from PIL import Image, ImageDraw
 import io
 import base64
