@@ -29,6 +29,7 @@ split/
 output/
 output_good/
 UaNet_2D/
+models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
