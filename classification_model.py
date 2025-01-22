@@ -1,19 +1,17 @@
 import argparse
 import json
-import os
 from pathlib import Path
-from torchvision import transforms, datasets
-from torch.utils.data import DataLoader, Dataset
+import matplotlib.pyplot as plt
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from PIL import Image
-import matplotlib.pyplot as plt
-import numpy as np
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from torch.utils.data import DataLoader, Dataset
 from torchcam.methods import SmoothGradCAMpp
 from torchcam.utils import overlay_mask
+from torchvision import transforms, models
 from torchvision.transforms.functional import to_pil_image
 
 num_classes = 2
@@ -25,6 +23,7 @@ default_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
 ])
+
 
 class JSONImageDataset(Dataset):
     def __init__(self, json_path, img_dir, transform=default_transform):
@@ -44,15 +43,12 @@ class JSONImageDataset(Dataset):
             image = self.transform(image)
         return image, label
 
+
 class ImageClassifier(pl.LightningModule):
     def __init__(self, num_classes=num_classes):
         super().__init__()
-        self.model = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(224 * 224 * 3, 512),
-            nn.ReLU(),
-            nn.Linear(512, num_classes)
-        )
+        self.model = models.resnet18(pretrained=True)
+        self.model.fc = nn.Linear(self.model.fc.in_features, num_classes)
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, x):
@@ -68,6 +64,7 @@ class ImageClassifier(pl.LightningModule):
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=0.001)
 
+
 def evaluate_model(model, dataloader):
     model.eval()
     correct = 0
@@ -80,6 +77,7 @@ def evaluate_model(model, dataloader):
             correct += (predicted == labels).sum().item()
     accuracy = correct / total
     print(f"Evaluation Accuracy: {accuracy:.2f}")
+
 
 def predict_image(model, img_path):
     model.eval()
@@ -98,16 +96,19 @@ def predict_image(model, img_path):
     plt.axis('off')
     plt.show()
 
+
 def main():
     global num_classes
 
     parser = argparse.ArgumentParser(description="Train, evaluate, or predict using an image classifier.")
-    parser.add_argument("-c", "--command", type=str, required=True, choices=["train", "evaluate", "predict"], help="Command to execute.")
+    parser.add_argument("-c", "--command", type=str, required=True, choices=["train", "evaluate", "predict"],
+                        help="Command to execute.")
     parser.add_argument("-a", "--annotations", type=str, help="Path to JSON file containing images and class IDs.")
     parser.add_argument("-d", "--img_dir", type=str, help="Directory containing images.")
     parser.add_argument("--max_epochs", type=int, default=100, help="Maximum number of training epochs.")
     parser.add_argument("--patience", type=int, default=10, help="Patience for early stopping.")
-    parser.add_argument("--save_dir", type=str, default="checkpoints", help="Directory to save TensorBoard data and checkpoints.")
+    parser.add_argument("--save_dir", type=str, default="checkpoints",
+                        help="Directory to save TensorBoard data and checkpoints.")
     parser.add_argument("-i", "--input_image", type=str, help="Path to input image for prediction.")
 
     args = parser.parse_args()
@@ -124,7 +125,7 @@ def main():
         checkpoint_callback = ModelCheckpoint(
             dirpath=args.save_dir,
             save_top_k=-1,
-            every_n_epochs=5
+            every_n_epochs=2
         )
 
         trainer = pl.Trainer(
@@ -149,6 +150,6 @@ def main():
 
         predict_image(model, args.input_image)
 
+
 if __name__ == "__main__":
     main()
-
