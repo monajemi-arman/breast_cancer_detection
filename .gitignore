@@ -30,6 +30,7 @@ output/
 output_good/
 UaNet_2D/
 classification_output/
+*_class.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
