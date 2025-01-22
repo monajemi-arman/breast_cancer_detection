@@ -1,4 +1,5 @@
 import argparse
+import base64
 import json
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -6,6 +7,8 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from PIL import Image
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torch.utils.data import DataLoader, Dataset
@@ -13,6 +16,7 @@ from torchcam.methods import SmoothGradCAMpp
 from torchcam.utils import overlay_mask
 from torchvision import transforms, models
 from torchvision.transforms.functional import to_pil_image
+from waitress import serve
 
 num_classes = 2
 
@@ -83,25 +87,77 @@ def predict_image(model, img_path):
     model.eval()
     image = Image.open(img_path).convert('RGB')
     transformed_image = default_transform(image).unsqueeze(0)
-    with torch.no_grad():
-        output = model(transformed_image)
-        _, predicted_class = torch.max(output, 1)
-    print(f"Predicted Class: {predicted_class.item()}")
 
     cam_extractor = SmoothGradCAMpp(model.model)
+
+    transformed_image = transformed_image.requires_grad_(True)
+    output = model(transformed_image)
+    _, predicted_class = torch.max(output, 1)
+    print(f"Predicted Class: {predicted_class.item()}")
+
     activation_map = cam_extractor(predicted_class.item(), output)[0]
-    result = overlay_mask(to_pil_image(transformed_image[0]), to_pil_image(activation_map, mode='F'), alpha=0.5)
+    cam_extractor.remove_hooks()
+
+    result = overlay_mask(to_pil_image(transformed_image[0]),
+                          to_pil_image(activation_map, mode='F'),
+                          alpha=0.5)
 
     plt.imshow(result)
     plt.axis('off')
     plt.show()
 
 
+def create_api(model):
+    app = Flask(__name__)
+    CORS(app)
+
+    @app.route('/predict', methods=['POST'])
+    def predict():
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+
+        file = request.files['file']
+        try:
+            image = Image.open(file).convert('RGB')
+            transformed_image = default_transform(image).unsqueeze(0)
+
+            cam_extractor = SmoothGradCAMpp(model.model)
+
+            transformed_image = transformed_image.requires_grad_(True)
+            output = model(transformed_image)
+            _, predicted_class = torch.max(output, 1)
+
+            # Generate the activation map
+            activation_map = cam_extractor(predicted_class.item(), output)[0]
+            cam_extractor.remove_hooks()
+
+            # Convert activation map to image
+            overlay_result = overlay_mask(
+                to_pil_image(transformed_image[0]),
+                to_pil_image(activation_map, mode='F'),
+                alpha=0.5
+            )
+            overlay_image_path = "activation_map.png"
+            overlay_result.save(overlay_image_path)
+
+            with open(overlay_image_path, "rb") as img_file:
+                encoded_image = base64.b64encode(img_file.read()).decode('utf-8')
+
+            return jsonify({
+                'predicted_class': int(predicted_class.item()),
+                'activation_map': encoded_image
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    return app
+
+
 def main():
     global num_classes
 
-    parser = argparse.ArgumentParser(description="Train, evaluate, or predict using an image classifier.")
-    parser.add_argument("-c", "--command", type=str, required=True, choices=["train", "evaluate", "predict"],
+    parser = argparse.ArgumentParser(description="Train, evaluate, predict, or run an API using an image classifier.")
+    parser.add_argument("-c", "--command", type=str, required=True, choices=["train", "evaluate", "predict", "api"],
                         help="Command to execute.")
     parser.add_argument("-a", "--annotations", type=str, help="Path to JSON file containing images and class IDs.")
     parser.add_argument("-d", "--img_dir", type=str, help="Directory containing images.")
@@ -149,6 +205,11 @@ def main():
         model = ImageClassifier.load_from_checkpoint(Path(args.save_dir) / "last.ckpt").to('cpu')
 
         predict_image(model, args.input_image)
+
+    elif args.command == "api":
+        model = ImageClassifier.load_from_checkpoint(Path(args.save_dir) / "last.ckpt").to('cpu')
+        app = create_api(model)
+        serve(app, host='0.0.0.0', port=33519)
 
 
 if __name__ == "__main__":
