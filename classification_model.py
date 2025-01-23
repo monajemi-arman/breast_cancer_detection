@@ -166,6 +166,7 @@ def main():
     parser.add_argument("--save_dir", type=str, default="checkpoints",
                         help="Directory to save TensorBoard data and checkpoints.")
     parser.add_argument("-i", "--input_image", type=str, help="Path to input image for prediction.")
+    parser.add_argument("-w", "--weights", type=str, help="Path to checkpoint for loading weights.")
 
     args = parser.parse_args()
 
@@ -175,7 +176,12 @@ def main():
 
         num_classes = len(set(item['class_id'] for item in dataset.data))
 
-        model = ImageClassifier(num_classes)
+        # Check if a checkpoint is provided for resuming training
+        if args.weights:
+            model = ImageClassifier.load_from_checkpoint(args.weights, num_classes=num_classes)
+            print(f"Resuming training from checkpoint: {args.weights}")
+        else:
+            model = ImageClassifier(num_classes)
 
         early_stopping = EarlyStopping(monitor='train_loss', patience=args.patience, mode='min')
         checkpoint_callback = ModelCheckpoint(
@@ -196,18 +202,20 @@ def main():
         dataset = JSONImageDataset(args.annotations, args.img_dir)
         dataloader = DataLoader(dataset, batch_size=32, shuffle=False)
 
-        model = ImageClassifier(num_classes)
-        model.load_from_checkpoint(Path(args.save_dir) / "last.ckpt")
+        checkpoint_path = args.weights or Path(args.save_dir) / "last.ckpt"
+        model = ImageClassifier.load_from_checkpoint(checkpoint_path)
 
         evaluate_model(model, dataloader)
 
     elif args.command == "predict":
-        model = ImageClassifier.load_from_checkpoint(Path(args.save_dir) / "last.ckpt").to('cpu')
+        checkpoint_path = args.weights or Path(args.save_dir) / "last.ckpt"
+        model = ImageClassifier.load_from_checkpoint(checkpoint_path).to('cpu')
 
         predict_image(model, args.input_image)
 
     elif args.command == "api":
-        model = ImageClassifier.load_from_checkpoint(Path(args.save_dir) / "last.ckpt").to('cpu')
+        checkpoint_path = args.weights or Path(args.save_dir) / "last.ckpt"
+        model = ImageClassifier.load_from_checkpoint(checkpoint_path).to('cpu')
         app = create_api(model)
         serve(app, host='0.0.0.0', port=33519)
 
