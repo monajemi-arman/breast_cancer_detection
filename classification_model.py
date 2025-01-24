@@ -7,6 +7,7 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from build.lib.torchcam.methods import LayerCAM
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
@@ -88,7 +89,7 @@ def predict_image(model, img_path):
     image = Image.open(img_path).convert('RGB')
     transformed_image = default_transform(image).unsqueeze(0)
 
-    cam_extractor = SmoothGradCAMpp(model.model)
+    cam_extractor = LayerCAM(model.model)
 
     transformed_image = transformed_image.requires_grad_(True)
     output = model(transformed_image)
