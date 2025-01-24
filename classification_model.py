@@ -7,19 +7,20 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from build.lib.torchcam.methods import LayerCAM
+from build.lib.torchcam.methods import GradCAM
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from torch.utils.data import DataLoader, Dataset
-from torchcam.methods import SmoothGradCAMpp
 from torchcam.utils import overlay_mask
 from torchvision import transforms, models
 from torchvision.transforms.functional import to_pil_image
 from waitress import serve
 
 num_classes = 2
+cam = GradCAM
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 torch.set_float32_matmul_precision('medium')
 
@@ -76,7 +77,7 @@ def evaluate_model(model, dataloader):
     total = 0
     with torch.no_grad():
         for images, labels in dataloader:
-            outputs = model(images)
+            outputs = model.to(device)(images.to(device)).to('cpu')
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -89,7 +90,7 @@ def predict_image(model, img_path):
     image = Image.open(img_path).convert('RGB')
     transformed_image = default_transform(image).unsqueeze(0)
 
-    cam_extractor = LayerCAM(model.model)
+    cam_extractor = cam(model.model)
 
     transformed_image = transformed_image.requires_grad_(True)
     output = model(transformed_image)
@@ -102,6 +103,8 @@ def predict_image(model, img_path):
     result = overlay_mask(to_pil_image(transformed_image[0]),
                           to_pil_image(activation_map, mode='F'),
                           alpha=0.5)
+
+    result = resize_overlay(result, image.size)
 
     plt.imshow(result)
     plt.axis('off')
@@ -122,7 +125,7 @@ def create_api(model):
             image = Image.open(file).convert('RGB')
             transformed_image = default_transform(image).unsqueeze(0)
 
-            cam_extractor = SmoothGradCAMpp(model.model)
+            cam_extractor = cam(model.model)
 
             transformed_image = transformed_image.requires_grad_(True)
             output = model(transformed_image)
@@ -138,6 +141,8 @@ def create_api(model):
                 to_pil_image(activation_map, mode='F'),
                 alpha=0.5
             )
+            overlay_result = resize_overlay(overlay_result, image.size)
+
             overlay_image_path = "activation_map.png"
             overlay_result.save(overlay_image_path)
 
@@ -152,6 +157,10 @@ def create_api(model):
             return jsonify({'error': str(e)}), 500
 
     return app
+
+
+def resize_overlay(overlay, original_shape):
+    return overlay.resize(original_shape, Image.BILINEAR)
 
 
 def main():
