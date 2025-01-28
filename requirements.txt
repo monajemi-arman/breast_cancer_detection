@@ -33,3 +33,4 @@ langchain-openai
 torchcam
 pytorch-lightning
 chardet
+langchain
