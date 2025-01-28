@@ -78,7 +78,7 @@ git clone https://github.com/monajemi-arman/breast_cancer_detection
 **2. Install prerequisites**
 ```bash
 cd breast_cancer_detection
-pip install -r requirements.txt
+pip install --no-build-isolation -r requirements.txt
 ```
 **2. Download the following datasets**  
 https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset  
