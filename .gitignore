@@ -6,6 +6,7 @@ test/
 train/
 val/
 datasets/
+custom-dataset/
 images/
 labels/
 masks/
