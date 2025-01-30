@@ -66,7 +66,7 @@ def predict(image):
 
 def infer(image, details=True):
     predictions = predict(image)
-    image_with_overlay = overlay_predictions(image, predictions)
+    image_with_overlay = overlay_predictions(image, predictions, confidence_threshold=threshold)
     if details:
         predictions_json = convert_predictions_to_json(predictions)
         return image_with_overlay, predictions_json
