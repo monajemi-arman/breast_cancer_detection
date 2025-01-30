@@ -12,7 +12,7 @@ import json
 model_path = 'model.pth'
 cfg_path = 'detectron.cfg.pkl'
 image_target_dims = [512, 512]
-threshold = 0.7
+threshold = 0.5
 # End of parameters
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
