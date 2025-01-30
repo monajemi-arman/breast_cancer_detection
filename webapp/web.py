@@ -2,7 +2,7 @@ import json
 import numpy as np
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 import io
 import base64
 from infer import infer
@@ -20,18 +20,58 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'nrrd'}
 
+
 def allowed_file(filename):
     """Validate allowed file types."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
 def draw_boxes(image, annotations):
-    """Draw bounding boxes on an image."""
     draw = ImageDraw.Draw(image)
-    line_width = max(1, int(min(image.width, image.height) * 0.005))  # Dynamic line width
+    line_width = max(1, int(min(image.width, image.height) * 0.005))
+
+    font_size = int(min(image.width, image.height) * 0.03)  # 3% of smaller dimension
+    font = None
+
+    try_fonts = ["arial.ttf", "DejaVuSans.ttf", "LiberationSans.ttf"]
+    for font_name in try_fonts:
+        try:
+            font = ImageFont.truetype(font_name, font_size)
+            break
+        except IOError:
+            continue
+
+    if font is None:
+        font = ImageFont.load_default()
+        print("Warning: Using non-scalable default font. For better results, install a TTF font.")
+
     for ann in annotations:
         x, y, width, height = ann['bbox']
+
         draw.rectangle([x, y, x + width, y + height], outline="red", width=line_width)
+
+        label = str(ann['category_id'])
+
+        text_bbox = draw.textbbox((0, 0), label, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1]
+
+        text_x = x
+        text_y = y - text_height - 2  # 2px padding
+        if text_y < 0:
+            text_y = y  # Move inside if at top edge
+
+        # Draw label background
+        draw.rectangle(
+            [text_x, text_y, text_x + text_width, text_y + text_height],
+            fill="red"
+        )
+
+        # Draw label text
+        draw.text((text_x, text_y), label, fill="white", font=font)
+
     return image
+
 
 def process_image(file, gt_file=None, infer_model=True):
     """
@@ -81,10 +121,12 @@ def process_image(file, gt_file=None, infer_model=True):
         "predictions": predictions
     }
 
+
 # Health Check Endpoint
 @app.route('/api/v1/health', methods=['GET'])
 def health():
     return jsonify({"status": "success", "message": "API is running"}), 200
+
 
 # Prediction Endpoint
 @app.route('/api/v1/predict', methods=['POST'])
@@ -117,6 +159,7 @@ def predict():
 
     return jsonify({"status": "error", "message": "Invalid file format"}), 400
 
+
 # Ground Truth Visualization Endpoint
 @app.route('/api/v1/ground-truth', methods=['POST'])
 def ground_truth():
@@ -146,6 +189,7 @@ def ground_truth():
 
     return jsonify({"status": "error", "message": "Invalid file format"}), 400
 
+
 # Front-end Endpoint
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
@@ -171,6 +215,7 @@ def upload_file():
             )
 
     return render_template('index.html')
+
 
 if __name__ == '__main__':
     serve(app.wsgi_app, host=host, port=port)
