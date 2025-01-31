@@ -91,9 +91,13 @@ def process_image(file, gt_file=None, infer_model=True):
     gt_data = None
     if gt_file and gt_file.filename.endswith('.json'):
         gt_json = json.load(gt_file)
+        for image in gt_json['images']:
+            if image['file_name'] == file.filename:
+                image_id = image['id']
+
         image_annotations = [
             ann for ann in gt_json['annotations']
-            if ann['image_id'] == 0  # Adjust this logic based on your dataset
+            if ann['image_id'] == image_id
         ]
         annotations = image_annotations
 
