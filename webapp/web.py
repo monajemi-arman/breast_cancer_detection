@@ -22,8 +22,8 @@ ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'nrrd'}
 
 predictor = Predictor()
 
+
 def allowed_file(filename):
-    """Validate allowed file types."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
@@ -74,48 +74,48 @@ def draw_boxes(image, annotations):
     return image
 
 
-def process_image(file, gt_file=None, infer_model=True):
-    """
-    Process the uploaded image, optionally process ground truth,
-    and perform inference.
-    """
+def process_image(file, gt_file=None, gt_json=None, infer_model=True):
     global predictor
 
     img = Image.open(file)
     img = img.convert('RGB')
 
-    # Encode original image to base64
     output = io.BytesIO()
     img.save(output, format='JPEG')
     image_data_orig = base64.b64encode(output.getvalue()).decode('utf-8')
 
-    # Process ground truth annotations
     annotations = []
     gt_data = None
-    if gt_file and gt_file.filename.endswith('.json'):
-        gt_json = json.load(gt_file)
+    if gt_json is not None:
+        image_id = None
         for image in gt_json['images']:
             if image['file_name'] == file.filename:
                 image_id = image['id']
+                break
+        if image_id is not None:
+            annotations = [ann for ann in gt_json['annotations'] if ann['image_id'] == image_id]
+    elif gt_file and gt_file.filename.endswith('.json'):
+        gt_json_local = json.load(gt_file)
+        image_id = None
+        for image in gt_json_local['images']:
+            if image['file_name'] == file.filename:
+                image_id = image['id']
+                break
+        if image_id is not None:
+            annotations = [ann for ann in gt_json_local['annotations'] if ann['image_id'] == image_id]
 
-        image_annotations = [
-            ann for ann in gt_json['annotations']
-            if ann['image_id'] == image_id
-        ]
-        annotations = image_annotations
-
-    # Draw ground truth if annotations exist
     if annotations:
         img_gt = draw_boxes(img.copy(), annotations)
         gt_output = io.BytesIO()
         img_gt.save(gt_output, format='JPEG')
         gt_data = base64.b64encode(gt_output.getvalue()).decode('utf-8')
 
-    # Perform inference if required
     inferred_data = None
+    predictions = []
     if infer_model:
         image_array = np.array(img)
-        inferred_array, predictions = predictor.infer(image_array, details=True)
+        inferred_array, preds = predictor.infer(image_array, details=True)
+        predictions = preds
         img_inferred = Image.fromarray(inferred_array)
         inferred_output = io.BytesIO()
         img_inferred.save(inferred_output, format='JPEG')
@@ -129,27 +129,29 @@ def process_image(file, gt_file=None, infer_model=True):
     }
 
 
-# Health Check Endpoint
 @app.route('/api/v1/health', methods=['GET'])
 def health():
     return jsonify({"status": "success", "message": "API is running"}), 200
 
 
-# Prediction Endpoint
 @app.route('/api/v1/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:
         return jsonify({"status": "error", "message": "No file part"}), 400
 
-    file = request.files['file']
-    gt_file = request.files.get('gt_file')
-
-    if file.filename == '':
+    files = request.files.getlist('file')
+    if len(files) == 0:
         return jsonify({"status": "error", "message": "No selected file"}), 400
 
-    if file and allowed_file(file.filename):
+    for file in files:
+        if not allowed_file(file.filename):
+            return jsonify({"status": "error", "message": "Invalid file format"}), 400
+
+    if len(files) == 1:
+        file = files[0]
+        gt_file = request.files.get('gt_file')
         try:
-            result = process_image(file, gt_file)
+            result = process_image(file, gt_file=gt_file, infer_model=True)
             response = {
                 "status": "success",
                 "message": "Inference successful",
@@ -163,8 +165,34 @@ def predict():
             return jsonify(response), 200
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
+    else:
+        gt_file = request.files.get('gt_file')
+        gt_json = None
+        if gt_file:
+            if not gt_file.filename.endswith('.json'):
+                return jsonify({"status": "error", "message": "GT file must be a JSON"}), 400
+            try:
+                gt_json = json.load(gt_file)
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Error loading GT JSON: {str(e)}"}), 400
 
-    return jsonify({"status": "error", "message": "Invalid file format"}), 400
+        results = []
+        for file in files:
+            try:
+                result = process_image(file, gt_json=gt_json, infer_model=True)
+                results.append({
+                    "filename": file.filename,
+                    "predictions": result['predictions']
+                })
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"Error processing {file.filename}: {str(e)}"}), 500
+
+        response = {
+            "status": "success",
+            "message": "Inference successful for multiple files",
+            "data": results
+        }
+        return jsonify(response), 200
 
 
 # Ground Truth Visualization Endpoint
