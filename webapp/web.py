@@ -5,7 +5,7 @@ from flask_cors import CORS
 from PIL import Image, ImageDraw, ImageFont
 import io
 import base64
-from infer import infer
+from infer import Predictor
 from waitress import serve
 
 # Host and port for waitress server
@@ -20,6 +20,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'jpg', 'jpeg', 'png', 'nrrd'}
 
+predictor = Predictor()
 
 def allowed_file(filename):
     """Validate allowed file types."""
@@ -50,7 +51,7 @@ def draw_boxes(image, annotations):
 
         draw.rectangle([x, y, x + width, y + height], outline="red", width=line_width)
 
-        label = str(ann['category_id'])
+        label = str(int(ann['category_id']) - 1)
 
         text_bbox = draw.textbbox((0, 0), label, font=font)
         text_width = text_bbox[2] - text_bbox[0]
@@ -78,6 +79,8 @@ def process_image(file, gt_file=None, infer_model=True):
     Process the uploaded image, optionally process ground truth,
     and perform inference.
     """
+    global predictor
+
     img = Image.open(file)
     img = img.convert('RGB')
 
@@ -112,7 +115,7 @@ def process_image(file, gt_file=None, infer_model=True):
     inferred_data = None
     if infer_model:
         image_array = np.array(img)
-        inferred_array, predictions = infer(image_array, details=True)
+        inferred_array, predictions = predictor.infer(image_array, details=True)
         img_inferred = Image.fromarray(inferred_array)
         inferred_output = io.BytesIO()
         img_inferred.save(inferred_output, format='JPEG')
