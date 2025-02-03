@@ -6,6 +6,7 @@ import cloudpickle as pickle
 import matplotlib.pyplot as plt
 import torch
 from detectron2.engine import DefaultPredictor
+import os
 import cv2
 
 # Parameters
@@ -15,6 +16,11 @@ cfg_path = 'detectron.cfg.pkl'
 image_target_dims = [512, 512]
 threshold = 0.5
 # End of parameters
+
+# Update paths to real
+script_dir = os.path.dirname(os.path.realpath(__file__))
+model_path = os.path.join(script_dir, model_path)
+cfg_path = os.path.join(script_dir, cfg_path)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
