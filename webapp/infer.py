@@ -43,7 +43,7 @@ class Predictor:
 
     @staticmethod
     def array_hash(array):
-        hashlib.md5(array.tobytes()).hexdigest()
+        return hashlib.md5(array.tobytes()).hexdigest()
 
 
     def overlay_predictions(self, image, predictions, confidence_threshold=0.5):
