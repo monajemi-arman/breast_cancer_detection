@@ -11,14 +11,22 @@ from PIL import Image
 from pydicom.pixel_data_handlers.util import apply_voi_lut
 from utils import read_dicom
 
+# --- Parameters ---
 input_dataset_path = 'datasets/custom'
 output_dataset_path = 'custom-dataset'
-selected_tags = {'sometag': 0}
+selected_tags = {'mass_conc_simpCompCyst': 0, 'mass_conc_cmpxBngCyst': 1, 'mass_conc_compxMlgCyst': 2,
+                 'mass_conc_bngSldTumor': 3, 'mass_conc_mlgSldTumor': 4}
 image_ext = '.jpg'
 input_images_path = os.path.join(input_dataset_path, 'images')
 input_labels_path = os.path.join(input_dataset_path, 'labels')
 output_images_path = os.path.join(output_dataset_path, 'images')
 output_labels_path = os.path.join(output_dataset_path, 'labels.json')
+# --- End of parameters --
+
+# For later use...
+selected_tags_keys = list(selected_tags.keys())
+for directory in output_dataset_path, output_images_path:
+    os.makedirs(directory, exist_ok=True)
 
 counter = 1
 annotation_id = 1
@@ -54,12 +62,11 @@ def process_zip_file(zip_path, image_id):
                     try:
                         with zip_file.open(file_info.filename) as file:
                             data = file.read()
-                            image_data = load_image_bytes(data).astype(np.uint8)
-                            height, width = image_data.shape[:2]
-                            image = Image.fromarray(image_data)
+                            image = read_custom_dicom(BytesIO(data))
+                            width, height = image.size
 
                             # Save image
-                            image_name_new = image_id + image_ext
+                            image_name_new = str(image_id) + image_ext
                             output_path = os.path.join(output_images_path, image_name_new)
                             image.save(output_path)
 
@@ -82,15 +89,15 @@ def process_label(original_id, image_name, image_id):
     global annotation_id
 
     annotations = []
-    json_path = os.path.join(original_id, image_name + '.json')
+    json_path = os.path.join(input_labels_path, original_id, image_name + '.json')
     with open(json_path) as f:
         json_data = json.load(f)
         for rectangle in json_data['rectangles']:
             tags = rectangle['tag']
-            found_tag = any(item in selected_tags.keys() for item in tags)
+            found_tag = [item in selected_tags_keys for item in tags]
             if any(found_tag):
                 # Determine category_id
-                category_id = selected_tags[selected_tags.keys()[found_tag.index(True)]]
+                category_id = selected_tags[selected_tags_keys[found_tag.index(True)]]
 
                 # Bounding box coordination
                 bbox = rectangle['x'], rectangle['y'], rectangle['width'], rectangle['height']
@@ -109,11 +116,16 @@ def process_label(original_id, image_name, image_id):
 
                 annotations.append(annotation)
 
-    return annotations
+    if annotations:
+        return annotations
 
 
 def process_directory(directory_path):
     json_data_final = {'categories': [], 'images': [], 'annotations': []}
+    # Write categories
+    for key in selected_tags_keys:
+        json_data_final['categories'].append({'id': selected_tags[key], 'name': key})
+
     image_id = 1
 
     for filename in os.listdir(directory_path):
@@ -143,7 +155,7 @@ def read_custom_dicom(file_path):
 
 
 def main():
-    pass
+    process_directory(input_images_path)
 
 
 if __name__ == '__main__':
