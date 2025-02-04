@@ -25,6 +25,7 @@ predictions.json
 config.json
 dataset.yaml
 split/
+llm/meditron*
 *.bak
 *.pkl
 output/
