@@ -142,6 +142,35 @@ def process_directory(directory_path):
         json.dump(json_data_final, f)
 
 
+def bbox_to_real(canvas_shape, real_shape, bbox):
+    canvas_width, canvas_height = canvas_shape
+    real_width, real_height = real_shape
+    x, y, width, height = bbox
+
+    # Which dimension is largest
+    max_dim = real_shape.index(max(real_shape))
+    # Based on that, calculate the ratio with which the image has got smaller
+    ratio = canvas_shape[max_dim] / real_shape[max_dim]
+
+    fake_width = ratio * real_width
+    fake_height = ratio * real_height
+
+    if max_dim == 1:
+        padding = (canvas_width - fake_width) / 2
+        real_x = (x - padding) / ratio
+        real_y = y / ratio
+
+    else:
+        padding = (canvas_width - fake_height) / 2
+        real_x = x / ratio
+        real_y = (y - padding) / ratio
+
+    real_width, real_height = width / ratio, height / ratio
+
+    real_bbox = [real_x, real_y, real_width, real_height]
+
+    return real_bbox
+
 def merge_dicts(dict1, dict2):
     for key, value in dict2.items():
         dict1[key].extend(value)
