@@ -14,8 +14,8 @@ from utils import read_dicom
 # --- Parameters ---
 input_dataset_path = 'datasets/custom'
 output_dataset_path = 'custom-dataset'
-selected_tags = {'mass_conc_simpCompCyst': 0, 'mass_conc_cmpxBngCyst': 1, 'mass_conc_compxMlgCyst': 2,
-                 'mass_conc_bngSldTumor': 3, 'mass_conc_mlgSldTumor': 4}
+selected_tags = {'mass_conc_simpCompCyst': 0, 'mass_conc_cmpxBngCyst': 0, 'mass_conc_compxMlgCyst': 1,
+                 'mass_conc_bngSldTumor': 0, 'mass_conc_mlgSldTumor': 1}
 image_ext = '.jpg'
 input_images_path = os.path.join(input_dataset_path, 'images')
 input_labels_path = os.path.join(input_dataset_path, 'labels')
@@ -56,15 +56,14 @@ def process_zip_file(zip_path, image_id):
                 image_name = file_info.filename
 
                 # Process corresponding label
-                annotations = process_label(original_id, image_name, image_id)
-                if annotations:
-                    # If successful, process and save the image
-                    try:
-                        with zip_file.open(file_info.filename) as file:
-                            data = file.read()
-                            image = read_custom_dicom(BytesIO(data))
-                            width, height = image.size
+                try:
+                    with zip_file.open(file_info.filename) as file:
+                        data = file.read()
+                        image = read_custom_dicom(BytesIO(data))
+                        width, height = image.size
 
+                        annotations = process_label(original_id, image_name, image_id, image.size)
+                        if annotations:
                             # Save image
                             image_name_new = str(image_id) + image_ext
                             output_path = os.path.join(output_images_path, image_name_new)
@@ -72,20 +71,21 @@ def process_zip_file(zip_path, image_id):
 
                             image_id += 1
 
-                        json_data['annotations'].extend(annotations)
-                        json_data['images'].append({
-                            'id': image_id,
-                            'file_name': image_name_new,
-                            'width': width,
-                            'height': height
-                        })
+                            # Save JSON data to array
+                            json_data['annotations'].extend(annotations)
+                            json_data['images'].append({
+                                'id': image_id,
+                                'file_name': image_name_new,
+                                'width': width,
+                                'height': height
+                            })
 
-                    except Exception as e:
-                        print(f"Could not process {file_info.filename} in {zip_path}: {e}")
+                except Exception as e:
+                    print(f"Could not process {file_info.filename} in {zip_path}: {e}")
     return image_id, json_data
 
 
-def process_label(original_id, image_name, image_id):
+def process_label(original_id, image_name, image_id, real_shape):
     global annotation_id
 
     annotations = []
@@ -101,6 +101,10 @@ def process_label(original_id, image_name, image_id):
 
                 # Bounding box coordination
                 bbox = rectangle['x'], rectangle['y'], rectangle['width'], rectangle['height']
+
+                # Bbox convert to real
+                bbox = bbox_to_real(bbox, real_shape)
+
                 area = bbox[2] * bbox[3]
 
                 annotation_id += 1
@@ -122,9 +126,8 @@ def process_label(original_id, image_name, image_id):
 
 def process_directory(directory_path):
     json_data_final = {'categories': [], 'images': [], 'annotations': []}
-    # Write categories
-    for key in selected_tags_keys:
-        json_data_final['categories'].append({'id': selected_tags[key], 'name': key})
+
+    json_data_final['categories'].extend([{'id': 0, 'name': 'mass_low'}, {'id': 1, 'name': 'mass_high'}])
 
     image_id = 1
 
@@ -142,7 +145,7 @@ def process_directory(directory_path):
         json.dump(json_data_final, f)
 
 
-def bbox_to_real(canvas_shape, real_shape, bbox):
+def bbox_to_real(bbox, real_shape, canvas_shape=(1100, 636)):
     canvas_width, canvas_height = canvas_shape
     real_width, real_height = real_shape
     x, y, width, height = bbox
