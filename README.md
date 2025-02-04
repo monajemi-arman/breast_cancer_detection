@@ -1,6 +1,19 @@
 # Breast_Cancer_Detection
-Breast cancer detection using mammography images, utilizing deep learning models
+Experimenting with public breast cancer mammography datasets (InBreast, MIAS, CBIS-DDSM).
+Deep learning project focused on mammography screening and expert aid.
 
+## Features
+* **Deep learning model** for mass detection (using Detectron2 and Ultralytics)
+  * API
+  * Web GUI
+  * Train and evaluate
+* **Explainable AI**
+  * ResNet
+  * API
+* **Chatbot** LLM API
+  * Combining previous model prediction with expert opinion
+* **Radiomics**
+  
 # Prerequisites
 * Nvidia CUDA drivers
   * Install a PyTorch compatible version of CUDA from:
@@ -151,6 +164,12 @@ curl -X POST \
   -F "file=@input.jpg" \
   http://localhost:33517/api/v1/predict \
   | jq -r '.data.inferred_image' | base64 --decode > prediction.jpg
+  
+# You may also pass several files for batch prediction
+curl -X POST \
+  -F "file=@sample1.jpg" \
+  -F "file=@sample2.jpg" \
+  http://localhost:33517/api/v1/predict  # Returns prediction array
 ```
 
 ## Evaluate
@@ -168,6 +187,50 @@ python detectron.py -c evaluate -w output/model_final.pth
 ```bash
 python detectron.py -c evaluate_test_to_coco -w output/model_final.pth
 ```
+---
+# Explainable AI
+First you must train classification model on the data.  
+The datasets contain data suitable for object detection. Therefore, you must first convert into classification dataset:
+* **Convert dataset for classification**
+```bash
+python coco_to_classification.py train.json train_class.json
+```
+* **Train classification model** 
+```bash
+python classification_model.py -a train_class.json -d train/images --save_dir classification_output -c train
+```
+
+* **Generate XAI**
+```bash
+python classification_model.py --save_dir classification_output -c predict -i train/images/cb_1.jpg
+```
+
+* **Run & Test API**
+```bash
+python classification_model.py --save_dir classification_output -c api
+
+# Save sample to heatmap.jpg
+curl -X POST -F "file=@test/images/20586986.jpg" http://localhost:33519/predict | jq -r '.activation_map' | base64 -d >~/heatmap.jpg
+```
+
+---
+
+# LLM API
+* **Setup config**  
+Inside llm/ directory, create _'config.json'_ based on _'config.json.default'_ template.
+  
+
+* **Run & Test LLM API**
+```bash
+python llm/llm_api_server.py
+
+curl -X POST http://localhost:33518/generate-response \                  
+-H "Content-Type: application/json" \
+-d '{
+  "prompt": "What is BI-RADS 4?", "predictions": "Some preds"
+}'
+```
+
 ---
 # YOLO
 ## Training
