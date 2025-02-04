@@ -34,3 +34,5 @@ torchcam
 pytorch-lightning
 chardet
 langchain
+transformers
+accelerate
