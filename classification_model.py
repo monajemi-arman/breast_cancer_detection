@@ -18,6 +18,7 @@ from torchvision import transforms, models
 from torchvision.transforms.functional import to_pil_image
 from waitress import serve
 
+API_PORT = 33519
 num_classes = 2
 cam = GradCAM
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -227,7 +228,7 @@ def main():
         checkpoint_path = args.weights or Path(args.save_dir) / "last.ckpt"
         model = ImageClassifier.load_from_checkpoint(checkpoint_path).to('cpu')
         app = create_api(model)
-        serve(app, host='0.0.0.0', port=33519)
+        serve(app, host='0.0.0.0', port=API_PORT)
 
 
 if __name__ == "__main__":
