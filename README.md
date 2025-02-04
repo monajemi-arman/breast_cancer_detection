@@ -107,24 +107,6 @@ You may enter one of the above filters in command line (-f).
 ```python
 python filters.py -i PATH_TO_IMAGE_DIRECTORY -o OUTPUT_IMAGE_DIRECTORY -f FILTER_NAME
 ```
-
----
-# YOLO
-## Training
-* Install Ultralytics
-```bash
-pip install ultralytics
-```
-* Train your desired YOLO model
-```bash
-yolo train data=dataset.yaml model=yolov8n
-
-```
-## Prediction
-Example of prediction using YOLO ultralytics framework:
-```bash
-yolo predict model=runs/detect/train/weights/best.pt source=images/cb_1.jpg conf=0.1 
-```
 ---
 # Detectron (Faster R-CNN)
 ## Train
@@ -186,7 +168,23 @@ python detectron.py -c evaluate -w output/model_final.pth
 ```bash
 python detectron.py -c evaluate_test_to_coco -w output/model_final.pth
 ```
+---
+# YOLO
+## Training
+* Install Ultralytics
+```bash
+pip install ultralytics
+```
+* Train your desired YOLO model
+```bash
+yolo train data=dataset.yaml model=yolov8n
 
+```
+## Prediction
+Example of prediction using YOLO ultralytics framework:
+```bash
+yolo predict model=runs/detect/train/weights/best.pt source=images/cb_1.jpg conf=0.1 
+```
 ---
 # UaNet (Deprecated)
 ## Training
