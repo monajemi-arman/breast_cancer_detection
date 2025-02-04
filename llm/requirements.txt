@@ -6,3 +6,4 @@ flask-cors
 langchain
 transformers
 accelerate
+bitsandbytes

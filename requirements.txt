@@ -36,3 +36,4 @@ chardet
 langchain
 transformers
 accelerate
+bitsandbytes
