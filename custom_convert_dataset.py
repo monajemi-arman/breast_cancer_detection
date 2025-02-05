@@ -105,20 +105,21 @@ def process_label(original_id, image_name, image_id, real_shape):
                 # Bbox convert to real
                 bbox = bbox_to_real(bbox, real_shape)
 
-                area = bbox[2] * bbox[3]
+                if bbox:
+                    area = bbox[2] * bbox[3]
 
-                annotation_id += 1
+                    annotation_id += 1
 
-                annotation = {
-                    'id': annotation_id,
-                    'image_id': image_id,
-                    'category_id': category_id,
-                    'bbox': bbox,
-                    'area': area,
-                    'iscrowd': 0
-                }
+                    annotation = {
+                        'id': annotation_id,
+                        'image_id': image_id,
+                        'category_id': category_id,
+                        'bbox': bbox,
+                        'area': area,
+                        'iscrowd': 0
+                    }
 
-                annotations.append(annotation)
+                    annotations.append(annotation)
 
     if annotations:
         return annotations
@@ -172,7 +173,11 @@ def bbox_to_real(bbox, real_shape, canvas_shape=(1100, 636)):
 
     real_bbox = [real_x, real_y, real_width, real_height]
 
-    return real_bbox
+    # Sanity check for bbox values
+    if any([i < 0 for i in real_bbox]):
+        return False
+    else:
+        return real_bbox
 
 def merge_dicts(dict1, dict2):
     for key, value in dict2.items():
