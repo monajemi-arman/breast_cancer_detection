@@ -65,7 +65,7 @@ def process_zip_file(zip_path, image_id):
                         annotations = process_label(original_id, image_name, image_id, image.size)
                         if annotations:
                             # Save image
-                            image_name_new = original_id + image_name + image_ext
+                            image_name_new = original_id + '_' + image_name + image_ext
                             output_path = os.path.join(output_images_path, image_name_new)
                             image.save(output_path)
 
