@@ -69,8 +69,6 @@ def process_zip_file(zip_path, image_id):
                             output_path = os.path.join(output_images_path, image_name_new)
                             image.save(output_path)
 
-                            image_id += 1
-
                             # Save JSON data to array
                             json_data['annotations'].extend(annotations)
                             json_data['images'].append({
@@ -137,6 +135,7 @@ def process_directory(directory_path):
         if os.path.isfile(filepath) and filename.lower().endswith('.zip'):
             try:
                 image_id, json_data = process_zip_file(filepath, image_id)
+                image_id += 1
                 json_data_final = merge_dicts(json_data_final, json_data)
             except Exception as e:
                 print(f"Could not process {filename}: {e}")
