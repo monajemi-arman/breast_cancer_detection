@@ -51,7 +51,7 @@ def draw_boxes(image, annotations):
 
         draw.rectangle([x, y, x + width, y + height], outline="red", width=line_width)
 
-        label = str(int(ann['category_id']) - 1)
+        label = str(int(ann['category_id']))
 
         text_bbox = draw.textbbox((0, 0), label, font=font)
         text_width = text_bbox[2] - text_bbox[0]
