@@ -29,7 +29,7 @@ for directory in output_dataset_path, output_images_path:
     os.makedirs(directory, exist_ok=True)
 
 counter = 1
-annotation_id = 1
+annotation_id = 0
 
 
 def load_image_bytes(data):
@@ -121,8 +121,7 @@ def process_label(original_id, image_name, image_id, real_shape):
 
                     annotations.append(annotation)
 
-    if annotations:
-        return annotations
+    return annotations
 
 
 def process_directory(directory_path):
