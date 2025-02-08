@@ -23,6 +23,9 @@ CONVERSATIONS_FOLDER = "conversations"
 MAX_CONVERSATIONS = 40
 CLEANUP_THRESHOLD = 20
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+config_json = os.path.join(script_dir, config_json)
+
 # Default context
 text_context_prepend = ("Role play: You are a radiologist." +
                         "You give expert opinion on mammography images for breast cancer screening." +
