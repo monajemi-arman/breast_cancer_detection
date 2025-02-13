@@ -1,7 +1,7 @@
 import gzip
 import hashlib
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, abort
 from waitress import serve
 from io import BytesIO
 import magic
@@ -10,9 +10,9 @@ from pydicom.errors import InvalidDicomError
 from utils import read_custom_dicom
 
 API_PORT = 33521
+UPLOAD_FOLDER = 'uploaded_images'
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploaded_images'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -62,6 +62,13 @@ def upload_file():
     save_as_jpeg(dicom_image, jpeg_filename)
 
     return jsonify({"url": f"/{UPLOAD_FOLDER}/{file_hash}.jpg"}), 200
+
+@app.route(f'/{UPLOAD_FOLDER}/<filename>')
+def uploaded_file(filename):
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if not os.path.isfile(file_path):
+        abort(404)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
     serve(app, host='0.0.0.0', port=API_PORT)
