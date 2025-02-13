@@ -34,6 +34,7 @@ UaNet_2D/
 classification_output/
 *_class.json
 activation_map.png
+uploaded_images/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
