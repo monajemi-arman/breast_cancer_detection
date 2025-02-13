@@ -37,3 +37,4 @@ langchain
 transformers
 accelerate
 bitsandbytes
+python-magic
