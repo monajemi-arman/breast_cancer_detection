@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import json
 import os
-from PIL import Image
+from PIL import Image, ImageOps
 import cv2
 import numpy as np
 import pydicom
@@ -39,6 +39,10 @@ def read_dicom(file_path):
 
     return image
 
+def read_custom_dicom(file_path):
+    image = read_dicom(file_path)
+    image = ImageOps.invert(image)
+    return image
 
 # YOLO to JSON Conversion
 def yolo_to_coco(yolo_annotations, image_dir, output_file):

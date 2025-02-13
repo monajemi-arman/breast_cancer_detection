@@ -3,13 +3,11 @@ import json
 import os.path
 import zipfile
 from pathlib import Path
-from PIL import Image, ImageOps
 import pydicom
 import numpy as np
 from io import BytesIO
-from PIL import Image
 from pydicom.pixel_data_handlers.util import apply_voi_lut
-from utils import read_dicom
+from utils import read_custom_dicom
 
 # --- Parameters ---
 input_dataset_path = 'datasets/custom'
@@ -182,12 +180,6 @@ def merge_dicts(dict1, dict2):
     for key, value in dict2.items():
         dict1[key].extend(value)
     return dict1
-
-
-def read_custom_dicom(file_path):
-    image = read_dicom(file_path)
-    image = ImageOps.invert(image)
-    return image
 
 
 def main():
