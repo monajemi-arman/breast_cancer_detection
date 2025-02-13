@@ -6,7 +6,8 @@ import sys
 scripts_to_run = [
     ("Image inference server", "webapp/web.py", []),
     ("X-AI (classification) server", "classification_model.py", ["-c", "api"]),
-    ("LLM chatbot server", "llm/llm_api_server.py", [])
+    ("LLM chatbot server", "llm/llm_api_server.py", []),
+    ("DICOM to JPEG converter server", "dicom_to_jpeg_api.py", [])
 ]
 
 processes = []
