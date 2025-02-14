@@ -39,9 +39,15 @@ def read_dicom(file_path):
 
     return image
 
+def is_majority_white(image):
+    pixels = image.getdata()
+    white_count = sum(1 for pixel in pixels if pixel == (255, 255, 255))
+    return white_count > len(pixels) / 2
+
 def read_custom_dicom(file_path):
     image = read_dicom(file_path)
-    image = ImageOps.invert(image)
+    if is_majority_white(image):
+        image = ImageOps.invert(image)
     return image
 
 # YOLO to JSON Conversion
