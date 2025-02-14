@@ -7,7 +7,7 @@ from io import BytesIO
 import magic
 import pydicom
 from pydicom.errors import InvalidDicomError
-from utils import read_custom_dicom
+from utils import read_dicom
 
 API_PORT = 33521
 UPLOAD_FOLDER = 'uploaded_images'
@@ -58,7 +58,7 @@ def upload_file():
     if os.path.exists(jpeg_filename):
         return jsonify({"path": f"/{UPLOAD_FOLDER}/{file_hash}.jpg"}), 200
 
-    dicom_image = read_custom_dicom(BytesIO(file_content))
+    dicom_image = read_dicom(BytesIO(file_content))
     save_as_jpeg(dicom_image, jpeg_filename)
 
     return jsonify({"path": f"/{UPLOAD_FOLDER}/{file_hash}.jpg"}), 200
