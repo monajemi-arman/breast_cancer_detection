@@ -7,7 +7,7 @@ import pydicom
 import numpy as np
 from io import BytesIO
 from pydicom.pixel_data_handlers.util import apply_voi_lut
-from utils import read_custom_dicom
+from utils import read_dicom
 
 # --- Parameters ---
 input_dataset_path = 'datasets/custom'
@@ -57,7 +57,7 @@ def process_zip_file(zip_path, image_id):
                 try:
                     with zip_file.open(file_info.filename) as file:
                         data = file.read()
-                        image = read_custom_dicom(BytesIO(data))
+                        image = read_dicom(BytesIO(data))
                         width, height = image.size
 
                         annotations = process_label(original_id, image_name, image_id, image.size)
