@@ -6,6 +6,7 @@ from waitress import serve
 from io import BytesIO
 import magic
 import pydicom
+from flask_cors import CORS
 from pydicom.errors import InvalidDicomError
 from utils import read_dicom
 
@@ -13,6 +14,7 @@ API_PORT = 33521
 UPLOAD_FOLDER = 'uploaded_images'
 
 app = Flask(__name__)
+CORS(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
