@@ -1,7 +1,7 @@
-import subprocess
-import threading
 import signal
+import subprocess
 import sys
+import threading
 
 scripts_to_run = [
     ("Image inference server", "webapp/web.py", []),
@@ -14,7 +14,7 @@ processes = []
 
 def run_script(title, script, args):
     print(f"[OK] Starting {title}...")
-    cmd = ["python3", script] + args
+    cmd = [sys.executable, script] + args
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     processes.append(process)
     stdout, stderr = process.communicate()
