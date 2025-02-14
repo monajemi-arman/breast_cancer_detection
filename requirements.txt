@@ -38,3 +38,4 @@ transformers
 accelerate
 bitsandbytes
 python-magic
+requests

@@ -58,12 +58,12 @@ def upload_file():
     jpeg_filename = os.path.join(app.config['UPLOAD_FOLDER'], f"{file_hash}.jpg")
 
     if os.path.exists(jpeg_filename):
-        return jsonify({"path": f"/{UPLOAD_FOLDER}/{file_hash}.jpg"}), 200
+        return jsonify({"path": f"/{UPLOAD_FOLDER}/{file_hash}.jpg", "hash": file_hash}), 200
 
     dicom_image = read_dicom(BytesIO(file_content))
     save_as_jpeg(dicom_image, jpeg_filename)
 
-    return jsonify({"path": f"/{UPLOAD_FOLDER}/{file_hash}.jpg"}), 200
+    return jsonify({"path": f"/{UPLOAD_FOLDER}/{file_hash}.jpg", "hash": file_hash}), 200
 
 @app.route(f'/{UPLOAD_FOLDER}/<filename>')
 def uploaded_file(filename):

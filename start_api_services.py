@@ -7,10 +7,12 @@ scripts_to_run = [
     ("Image inference server", "webapp/web.py", []),
     ("X-AI (classification) server", "classification_model.py", ["-c", "api"]),
     ("LLM chatbot server", "llm/llm_api_server.py", []),
-    ("DICOM to JPEG converter server", "dicom_to_jpeg_api.py", [])
+    ("DICOM to JPEG converter server", "dicom_to_jpeg_api.py", []),
+    ("Hash router server", "hash_router.py", []),
 ]
 
 processes = []
+
 
 def run_script(title, script, args):
     print(f"[OK] Starting {title}...")
@@ -24,11 +26,13 @@ def run_script(title, script, args):
         print(f"Error in {title} ({script}):")
         print(stderr)
 
+
 def signal_handler(sig, frame):
     print("\n[INFO] Control+C pressed. Stopping all scripts...")
     for process in processes:
         process.terminate()
     sys.exit(0)
+
 
 def main(scripts_to_run):
     signal.signal(signal.SIGINT, signal_handler)
@@ -41,6 +45,7 @@ def main(scripts_to_run):
 
     for thread in threads:
         thread.join()
+
 
 if __name__ == "__main__":
     main(scripts_to_run)
