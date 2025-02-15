@@ -1,4 +1,4 @@
-config.json
+config*.json
 demo/*.txt
 conversations
 meditron-7b
