@@ -17,12 +17,15 @@ from torchcam.utils import overlay_mask
 from torchvision import transforms, models
 from torchvision.transforms.functional import to_pil_image
 from waitress import serve
+import os
 
 API_PORT = 33519
 num_classes = 2
 cam = GradCAM
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+save_dir_default = os.path.join(script_dir, "classification_output")
 torch.set_float32_matmul_precision('medium')
 
 default_transform = transforms.Compose([
@@ -174,7 +177,7 @@ def main():
     parser.add_argument("-d", "--img_dir", type=str, help="Directory containing images.")
     parser.add_argument("--max_epochs", type=int, default=100, help="Maximum number of training epochs.")
     parser.add_argument("--patience", type=int, default=10, help="Patience for early stopping.")
-    parser.add_argument("--save_dir", type=str, default="classification_output",
+    parser.add_argument("--save_dir", type=str, default=save_dir_default,
                         help="Directory to save TensorBoard data and checkpoints.")
     parser.add_argument("-i", "--input_image", type=str, help="Path to input image for prediction.")
     parser.add_argument("-w", "--weights", type=str, help="Path to checkpoint for loading weights.")
