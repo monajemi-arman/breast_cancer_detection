@@ -26,7 +26,16 @@ Deep learning project focused on mammography screening and expert aid.
 * Pytorch with CUDA support
   * Visit [PyTorch website](https://pytorch.org/get-started/locally/) for more information
 
-These two must be installed __manually__ or else will break installation of other requirements later on.   
+The two above must be installed __manually__ or else will break installation of other requirements later on.
+* Libmagic
+  * Linux (Ubuntu/Debian)
+  ```bash
+  sudo apt install libmagic1
+  ```
+  * Windows
+  ```commandline
+  pip install python-magic-bin
+  ```
 
 # Datasets
 
