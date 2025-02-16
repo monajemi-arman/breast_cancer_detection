@@ -8,6 +8,7 @@ import numpy as np
 from io import BytesIO
 from pydicom.pixel_data_handlers.util import apply_voi_lut
 from utils import read_dicom
+from argparse import ArgumentParser
 
 # --- Parameters ---
 input_dataset_path = 'datasets/custom'
@@ -21,10 +22,22 @@ output_images_path = os.path.join(output_dataset_path, 'images')
 output_labels_path = os.path.join(output_dataset_path, 'labels.json')
 # --- End of parameters --
 
+parser = ArgumentParser()
+parser.add_argument('--else-labels', dest="ELSE_LABELS_AS_LAST", default=False, action='store_true',
+                    help='Generate all labels even if not selected, put them into else')
+parsed = parser.parse_args()
+ELSE_LABELS_AS_LAST = parsed.ELSE_LABELS_AS_LAST
+
 # For later use...
 selected_tags_keys = list(selected_tags.keys())
 for directory in output_dataset_path, output_images_path:
     os.makedirs(directory, exist_ok=True)
+
+if ELSE_LABELS_AS_LAST:
+    selected_tags_values = set(selected_tags.values())
+    selected_tags_values.sort()
+    else_id = selected_tags_values[-1] + 1
+    selected_tags['else'] = else_id
 
 counter = 1
 annotation_id = 0
@@ -85,6 +98,7 @@ def process_zip_file(zip_path, image_id):
 
 def process_label(original_id, image_name, image_id, real_shape):
     global annotation_id
+    global ELSE_LABELS_AS_LAST
 
     annotations = []
     json_path = os.path.join(input_labels_path, original_id, image_name + '.json')
@@ -93,9 +107,10 @@ def process_label(original_id, image_name, image_id, real_shape):
         for rectangle in json_data['rectangles']:
             tags = rectangle['tag']
             found_tag = [item in selected_tags_keys for item in tags]
-            if any(found_tag):
+            if any(found_tag) or ELSE_LABELS_AS_LAST:
                 # Determine category_id
-                category_id = selected_tags[selected_tags_keys[found_tag.index(True)]]
+                category_id = selected_tags[
+                    selected_tags_keys[found_tag.index(True)]] if not ELSE_LABELS_AS_LAST else else_id
 
                 # Bounding box coordination
                 bbox = rectangle['x'], rectangle['y'], rectangle['width'], rectangle['height']
@@ -126,6 +141,10 @@ def process_directory(directory_path):
     json_data_final = {'categories': [], 'images': [], 'annotations': []}
 
     json_data_final['categories'].extend([{'id': 0, 'name': 'mass_low'}, {'id': 1, 'name': 'mass_high'}])
+
+    # Quick hack for else category
+    if ELSE_LABELS_AS_LAST:
+        json_data_final['categories'].append({'id': else_id, 'name': 'else'})
 
     image_id = 1
 
@@ -175,6 +194,7 @@ def bbox_to_real(bbox, real_shape, canvas_shape=(1100, 636)):
         return False
     else:
         return real_bbox
+
 
 def merge_dicts(dict1, dict2):
     for key, value in dict2.items():
