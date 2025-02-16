@@ -1,3 +1,4 @@
+import os.path
 import signal
 import subprocess
 import sys
@@ -13,6 +14,7 @@ scripts_to_run = [
 
 processes = []
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
 
 def run_script(title, script, args):
     print(f"[OK] Starting {title}...")
@@ -39,6 +41,7 @@ def main(scripts_to_run):
 
     threads = []
     for title, script, args in scripts_to_run:
+        script = os.path.join(script_dir, script)
         thread = threading.Thread(target=run_script, args=(title, script, args))
         threads.append(thread)
         thread.start()
