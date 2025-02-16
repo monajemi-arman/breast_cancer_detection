@@ -34,7 +34,7 @@ for directory in output_dataset_path, output_images_path:
     os.makedirs(directory, exist_ok=True)
 
 if ELSE_LABELS_AS_LAST:
-    selected_tags_values = set(selected_tags.values())
+    selected_tags_values = list(set(selected_tags.values()))
     selected_tags_values.sort()
     else_id = selected_tags_values[-1] + 1
     selected_tags['else'] = else_id
