@@ -181,5 +181,5 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--label-path', type=str, required=True, help='Path to annotations folder or JSON file')
     args = parser.parse_args()
 
-    class_names = ["mass"]
+    class_names = ["low_mass", "high_mass", "else"]
     interactive_file_browser(args.dataset_path, args.mode, args.label_path, class_names)
