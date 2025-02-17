@@ -13,7 +13,7 @@ masks/
 archive/
 *.pt
 *.pth
-*.yaml
+dataset.yaml
 *.cache
 runs/
 UaNet-dataset/
