@@ -37,6 +37,11 @@ The two above must be installed __manually__ or else will break installation of 
   pip install python-magic-bin
   ```
 
+* (optional) If you're going to run inside docker, install nvidia-container-toolkit on host. The following is how you install it on Linux:
+  ```bash
+  sudo apt install nvidia-container-toolkit
+  ```
+
 # Datasets
 
 Supported datasets:
