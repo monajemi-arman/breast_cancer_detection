@@ -4,6 +4,10 @@ FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 # Set environment variables to avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Temporarily disable the NVIDIA repository
+RUN mv /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/cuda.list.disabled && \
+    mv /etc/apt/sources.list.d/nvidia-ml.list /etc/apt/sources.list.d/nvidia-ml.list.disabled
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     git \
@@ -13,6 +17,10 @@ RUN apt-get update && apt-get install -y \
     nodejs \
     npm \
     && rm -rf /var/lib/apt/lists/*
+
+# Re-enable the NVIDIA repository
+RUN mv /etc/apt/sources.list.d/cuda.list.disabled /etc/apt/sources.list.d/cuda.list && \
+    mv /etc/apt/sources.list.d/nvidia-ml.list.disabled /etc/apt/sources.list.d/nvidia-ml.list
 
 # Create a non-root user
 RUN useradd -m user
