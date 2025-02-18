@@ -59,11 +59,11 @@ COPY --chown=user:user ./model.pth /home/user/breast_cancer_detection/webapp/mod
 # Copy and set up the mammoGraphyLabeling project
 COPY --chown=user:user ./mammoGraphyLabeling /home/user/mammoGraphyLabeling
 
+USER root
 # Temporarily disable the NVIDIA repository
 RUN mv /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list.disabled
 
 # Install new node
-USER root
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
