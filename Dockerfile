@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     python3 \
     python3-pip \
-    python3-is-python \
+    python-is-python3 \
     nodejs \
     npm \
     && rm -rf /var/lib/apt/lists/*
