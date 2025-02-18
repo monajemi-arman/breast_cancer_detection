@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     python3 \
     python3-pip \
+    python3-is-python \
     nodejs \
     npm \
     && rm -rf /var/lib/apt/lists/*
@@ -52,4 +53,4 @@ WORKDIR /home/user/breast_cancer_detection
 EXPOSE 3000-3006 33510-33530
 
 # Command to start both services
-CMD bash -c "python start_api_services.py & cd /home/user/mammoGraphyLabeling && npm start"
+CMD bash -c "python start_api_services.py & cd /home/user/mammoGraphyLabeling && npm run dev"
