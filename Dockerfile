@@ -70,6 +70,9 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
 # Re-enable the NVIDIA repository
 RUN mv /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list.disabled /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list
 
+# Make sure LibGl is present
+RUN apt-get install -y ffmpeg libsm6 libxext6
+
 USER user
 WORKDIR /home/user/mammoGraphyLabeling
 
