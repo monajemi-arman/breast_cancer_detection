@@ -28,6 +28,9 @@ WORKDIR /home/user
 # Clone the repository
 RUN git clone https://github.com/monajemi-arman/breast_cancer_detection.git
 
+# Debugging step: List files to ensure they exist
+RUN ls -lah /home/user/breast_cancer_detection
+
 # Copy required files
 COPY ./last.ckpt /home/user/breast_cancer_detection/classification_output/last.ckpt
 COPY ./config.json /home/user/breast_cancer_detection/llm/config.json
@@ -41,7 +44,10 @@ RUN pip install -r /home/user/breast_cancer_detection/requirements.txt
 # Copy and set up the mammoGraphyLabeling project
 COPY ./mammoGraphyLabeling /home/user/mammoGraphyLabeling
 WORKDIR /home/user/mammoGraphyLabeling
+
+# Ensure dependencies are installed
 RUN npm install
+RUN npm install -g vite # Ensures Vite is available globally
 
 # Switch to the non-root user
 USER user
@@ -53,4 +59,4 @@ WORKDIR /home/user/breast_cancer_detection
 EXPOSE 3000-3006 33510-33530
 
 # Command to start both services
-CMD bash -c "python start_api_services.py & cd /home/user/mammoGraphyLabeling && npm run dev"
+CMD bash -c "ls -lah /home/user/breast_cancer_detection && python start_api_services.py & cd /home/user/mammoGraphyLabeling && npm run dev"
