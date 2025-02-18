@@ -5,8 +5,7 @@ FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Temporarily disable the NVIDIA repository
-RUN mv /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/cuda.list.disabled && \
-    mv /etc/apt/sources.list.d/nvidia-ml.list /etc/apt/sources.list.d/nvidia-ml.list.disabled
+RUN mv /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list.disabled
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -19,8 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Re-enable the NVIDIA repository
-RUN mv /etc/apt/sources.list.d/cuda.list.disabled /etc/apt/sources.list.d/cuda.list && \
-    mv /etc/apt/sources.list.d/nvidia-ml.list.disabled /etc/apt/sources.list.d/nvidia-ml.list
+RUN mv /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list.disabled /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list
 
 # Create a non-root user
 RUN useradd -m user
