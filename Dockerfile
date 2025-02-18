@@ -14,43 +14,67 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python-is-python3 \
-    nodejs \
-    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Re-enable the NVIDIA repository
 RUN mv /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list.disabled /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list
 
-# Create a non-root user
-RUN useradd -m user
+# Create a non-root user and set up its home directory with proper permissions
+RUN useradd -m user && \
+    chown -R user:user /home/user && \
+    chmod -R u+w /home/user
+
 WORKDIR /home/user
 
-# Clone the repository
+# Clone the repository as the non-root user
 RUN git clone https://github.com/monajemi-arman/breast_cancer_detection.git
-
-# Debugging step: List files to ensure they exist
-RUN ls -lah /home/user/breast_cancer_detection
-
-# Copy required files
-COPY ./last.ckpt /home/user/breast_cancer_detection/classification_output/last.ckpt
-COPY ./config.json /home/user/breast_cancer_detection/llm/config.json
-COPY ./detectron.cfg.pkl /home/user/breast_cancer_detection/webapp/detectron.cfg.pkl
-COPY ./model.pth /home/user/breast_cancer_detection/webapp/model.pth
 
 # Install Python dependencies
 RUN pip install torch torchvision torchaudio
 RUN pip install -r /home/user/breast_cancer_detection/requirements.txt
 
+RUN chown -R user:user /home/user/*
+
+# Switch to the non-root user
+USER user
+
+# Set the working directory
+WORKDIR /home/user
+
+# Check if the repository was cloned successfully and is not empty
+RUN if [ -z "$(ls -A /home/user/breast_cancer_detection)" ]; then \
+        echo "Error: breast_cancer_detection repository is empty or failed to clone."; \
+        exit 1; \
+    fi
+
+# Debugging step: List files to ensure they exist
+RUN ls -lah /home/user/breast_cancer_detection
+
+# Copy required files and ensure they are owned by the non-root user
+COPY --chown=user:user ./last.ckpt /home/user/breast_cancer_detection/classification_output/last.ckpt
+COPY --chown=user:user ./config.json /home/user/breast_cancer_detection/llm/config.json
+COPY --chown=user:user ./detectron.cfg.pkl /home/user/breast_cancer_detection/webapp/detectron.cfg.pkl
+COPY --chown=user:user ./model.pth /home/user/breast_cancer_detection/webapp/model.pth
+
 # Copy and set up the mammoGraphyLabeling project
-COPY ./mammoGraphyLabeling /home/user/mammoGraphyLabeling
+COPY --chown=user:user ./mammoGraphyLabeling /home/user/mammoGraphyLabeling
+
+# Temporarily disable the NVIDIA repository
+RUN mv /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list.disabled
+
+# Install new node
+USER root
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs
+
+# Re-enable the NVIDIA repository
+RUN mv /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list.disabled /etc/apt/sources.list.d/cuda-ubuntu2204-x86_64.list
+
+USER user
 WORKDIR /home/user/mammoGraphyLabeling
 
 # Ensure dependencies are installed
 RUN npm install
-RUN npm install -g vite # Ensures Vite is available globally
-
-# Switch to the non-root user
-USER user
 
 # Set the working directory for the breast_cancer_detection project
 WORKDIR /home/user/breast_cancer_detection
@@ -58,5 +82,5 @@ WORKDIR /home/user/breast_cancer_detection
 # Expose ports
 EXPOSE 3000-3006 33510-33530
 
-# Command to start both services
-CMD bash -c "ls -lah /home/user/breast_cancer_detection && python start_api_services.py & cd /home/user/mammoGraphyLabeling && npm run dev"
+# Command to start both services and keep the container alive on error
+CMD bash -c "ls -lah /home/user/breast_cancer_detection && python start_api_services.py & cd /home/user/mammoGraphyLabeling && npm run dev || sleep infinity"

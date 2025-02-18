@@ -9,7 +9,5 @@ services:
       - "33510-33530:33510-33530"
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-    volumes:
-      - .:/home/user
     user: user
     restart: unless-stopped
