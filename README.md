@@ -131,7 +131,7 @@ After completion, images/, labels/, dataset.yaml, annotations.json would be pres
 **5. (optional) Apply additional filters to images**  
 If necessary, you may apply these filters to images using our script: _canny, clahe, gamma, histogram, unsharp  
 You may enter one of the above filters in command line (-f). 
-```python
+```bash
 python filters.py -i PATH_TO_IMAGE_DIRECTORY -o OUTPUT_IMAGE_DIRECTORY -f FILTER_NAME
 ```
 ---
@@ -155,7 +155,7 @@ python detectron.py -c predict -w output/model_final.pth -i <image path>
 ## Web Application
 ### Usage
 1. Run train step as explained above
-2. Copy 'detectron.cfg.pkl' and the last model checkpoint to webapp/ directory.  
+2. Copy 'detectron.cfg.pkl' and the last model checkpoint to webapp/model.pth .  
 \* Last model checkpoint file name is written in output/last_checkpoint
 3. Run the following:
 ```bash
