@@ -262,7 +262,7 @@ def evaluate_test_to_coco(cfg, parsed=None):
         image_id = image_path.stem
 
         results_json['images'].append({
-            "id": image_id,
+            "id": int(image_id),
             "file_name": image_path.name,
             "width": image.shape[1],
             "height": image.shape[0],
@@ -272,7 +272,7 @@ def evaluate_test_to_coco(cfg, parsed=None):
             x, y, w, h = box
             results_json['annotations'].append({
                 "id": len(results_json['annotations']) + 1,
-                "image_id": image_id,
+                "image_id": int(image_id),
                 "category_id": int(cls),
                 "bbox": [float(x), float(y), float(w) - float(x), float(h) - float(y)],
                 "score": float(score),
@@ -506,7 +506,7 @@ def main():
 
     argparser = ArgumentParser()
     argparser.add_argument('-c', '--choice',
-                           help="Modes of program: train, predict, evaluate, evaluate_dataset_to_coco, export_model",
+                           help="Modes of program: train, predict, evaluate, evaluate_test_to_coco, export_model",
                            type=str)
     argparser.add_argument('-i', '--image-path', type=str)
     argparser.add_argument('-f', '--filter', type=str, choices=filters_list)
@@ -525,7 +525,7 @@ def main():
         output_path = parsed.output_path
 
     while choice not in choices:
-        choice = (input("Enter mode (train, evaluate, predict, evaluate_fo, evaluate_dataset_to_coco, export_model): ")
+        choice = (input("Enter mode (train, evaluate, predict, evaluate_fo, evaluate_test_to_coco, export_model): ")
                   .lower())
 
     device = 'cpu'
