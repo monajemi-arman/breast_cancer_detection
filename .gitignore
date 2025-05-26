@@ -1,4 +1,5 @@
 # Project specific files
+.vscode/
 bin/
 lib64
 pyvenv.cfg
