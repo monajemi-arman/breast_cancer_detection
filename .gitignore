@@ -1,6 +1,7 @@
 # Project specific files
 watch_folder
 .vscode/
+*.db
 bin/
 lib64
 pyvenv.cfg
