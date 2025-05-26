@@ -10,6 +10,7 @@ scripts_to_run = [
     ("LLM chatbot server", "llm/llm_api_server.py", []),
     ("DICOM to JPEG converter server", "dicom_to_jpeg_api.py", []),
     ("Hash router server", "hash_router.py", []),
+    ("Watchdog for DICOM folder", "watch_images_dir.py", [])
 ]
 
 processes = []
