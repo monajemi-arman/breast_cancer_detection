@@ -1,8 +1,35 @@
-# Breast_Cancer_Detection
-Experimenting with public breast cancer mammography datasets (InBreast, MIAS, CBIS-DDSM).
-Deep learning project focused on mammography screening and expert aid.
+# Breast Cancer Detection
+Mammography Mass Detection using Artificial Intelligence;  
+<p style='text-align: justify;'>Using this project you will be able to train a model on mammography images for suspicious mass detection, deploy a simple web application for inference, and use several tools and API with custom features made for use in larger projects.</p>
+<p style='text-align: justify;'>It started first as a research project training a deep learning model on InBreast, CBIS-DDSM, MIAS datasets of public labeled mammography images. As the results were promising, we decided to expand the project and to implement tools and API services for local integration with current clinical applications. We gathered local labeled mammography images and made possible the use of customized AI in local hospitals.</p>
 
-## Features
+# Table of Contents
+- [Features](#features)
+- [Prerequisites](#prerequisites)
+- [Datasets](#datasets)
+  * [Download](#download)
+  * [Visualizer](#visualizer)
+- [Usage](#usage)
+- [Detectron (Faster R-CNN)](#detectron--faster-r-cnn-)
+  * [Train](#train)
+  * [Predict](#predict)
+  * [Evaluate](#evaluate)
+  * [Web Application](#web-application)
+- [API Services](#api-services)
+  * [**Object Detection API**](#--object-detection-api--)
+  * [**DICOM to JPEG**](#--dicom-to-jpeg--)
+  * [**Hash Router**](#--hash-router--)
+  * [**Watch Folder API**](#--watch-folder-api--)
+  * [**Explainable AI**](#--explainable-ai--)
+  * [**Chatbot AI**](#--chatbot-ai--)
+- [Explainable AI](#explainable-ai)
+- [LLM API](#llm-api)
+- [YOLO](#yolo)
+  * [Training](#training)
+  * [Prediction](#prediction)
+
+
+# Features
 * **Deep learning model** for mass detection (using Detectron2 and Ultralytics)
   * API
   * Web GUI
@@ -185,7 +212,7 @@ python detectron.py -c evaluate_test_to_coco -w output/model_final.pth
 Over time, this project has grown in size and the following services were added:
 ![screenshot of API starting log](demo/api_services.jpg)
 
-* **Object Detection API**  
+## **Object Detection API**  
 This service is behind the webapp as discussed above. Returns detection model results.
 ```bash
 # Run server
@@ -205,13 +232,13 @@ curl -X POST \
   http://localhost:33517/api/v1/predict  # Returns prediction array
 ```
 
-* **DICOM to JPEG**  
+## **DICOM to JPEG**  
 This services supports DICOM in two forms, compressed (gz) or uncompressed (dcm). The file suffix is not important, it automatically checks file type from content to determine whether the file is compressed or not.
 ```bash
 curl -X POST -F 'file=@PATH_TO_FILE' http://localhost:33521/upload
 ```
 
-* **Hash Router**  
+## **Hash Router**  
 In larger projects, in order to prevent repeated image uploads, one first converts the DICOM image to JPEG using the previous API, and then uses the resulting hash id in this router so as not to require a repeated upload of the image for use in each service.  
 The hash router would read the provided hash id and load the image before sending the request to the target API. You pass the hash in both `hash: ...` and `data['file']` in the request to the hash router. (as demonstrated below)
 ```bash
@@ -227,7 +254,7 @@ curl -X POST "http://localhost:33516/route" \
 
 ```
 
-* **Watch Folder API**  
+## **Watch Folder API**  
 This service watches a specific directory (`watch_folder`) for new DICOM images, converts them to JPEG using `dicom_to_jpeg` API, and returns the paths. This is particularly useful in `hash_router`.
 ```bash
 #List images
@@ -240,13 +267,13 @@ curl "http://localhost:33522/images?count=10&page=1"
 curl "http://localhost:33522/hash_to_original?hash=b3244f7af…" {"original_filename":"something.dcm"}
 ```
 
-* **Explainable AI**  
+## **Explainable AI**  
 After training the `classification_model.py` you may use the resulting checkpoint (should be present at `classification_output/last.ckpt`) for gradcam heatmap generation.
 ```bash
 curl -X POST -F "file=@test/images/20586986.jpg" http://localhost:33519/predict | jq -r '.activation_map' | base64 -d >~/test.jpg
 ```
 
-* **Chatbot AI**  
+## **Chatbot AI**  
 Modify `llm/config.json` based on the template in that folder to make use of Open AI API in this project. The aim of the chatbot is to receive the output of the prediction model and then chat about the image using those predictions.
 ```bash
 curl -X POST http://127.0.0.1:33518/generate-response -H "Content-Type: application/json"  -d '{"prompt": "<user prompt here>", "predictions": "<pass the model predictions array here>"}'
