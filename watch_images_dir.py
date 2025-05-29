@@ -8,6 +8,7 @@ from watchdog.events import FileSystemEventHandler
 from flask import Flask, request, jsonify
 from waitress import serve
 from PIL import Image
+from flask_cors import CORS
 
 WATCH_FOLDER = './watch_folder'
 UPLOAD_URL = 'http://localhost:33521/upload'
@@ -30,6 +31,7 @@ def init_db():
 init_db()
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/hash_to_original')
 def hash_to_original():
