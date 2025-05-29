@@ -165,6 +165,21 @@ python web.py
   
 ![object detection webapp](demo/webapp.png)
 
+## Evaluate
+### Evaluation using COCOEvaluator
+* Calculate mAP
+* Uses test dataset by default
+```bash
+python detectron.py -c evaluate -w output/model_final.pth
+```
+![](demo/pr_curve.jpg)
+### Save predictions in COCO style JSON (optional)
+* Suitable for later offline metrics calculation
+* All predictions of the test dataset will be written to predicions.json
+* Follows COCO format
+```bash
+python detectron.py -c evaluate_test_to_coco -w output/model_final.pth
+```
 
 # API Services
 Over time, this project has grown in size and the following services were added:
@@ -237,23 +252,6 @@ Modify `llm/config.json` based on the template in that folder to make use of Ope
 curl -X POST http://127.0.0.1:33518/generate-response -H "Content-Type: application/json"  -d '{"prompt": "<user prompt here>", "predictions": "<pass the model predictions array here>"}'
 ```
 
-
-## Evaluate
-### Evaluation using COCOEvaluator
-* Calculate mAP
-* Uses test dataset by default
-```bash
-python detectron.py -c evaluate -w output/model_final.pth
-```
-![](demo/pr_curve.jpg)
-### Save predictions in COCO style JSON (optional)
-* Suitable for later offline metrics calculation
-* All predictions of the test dataset will be written to predicions.json
-* Follows COCO format
-```bash
-python detectron.py -c evaluate_test_to_coco -w output/model_final.pth
-```
----
 # Explainable AI
 First you must train classification model on the data.  
 The datasets contain data suitable for object detection. Therefore, you must first convert into classification dataset:
