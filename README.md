@@ -134,7 +134,6 @@ You may enter one of the above filters in command line (-f).
 ```bash
 python filters.py -i PATH_TO_IMAGE_DIRECTORY -o OUTPUT_IMAGE_DIRECTORY -f FILTER_NAME
 ```
----
 # Detectron (Faster R-CNN)
 ## Train
 The purpose of detectron.py is to train and evaluate a Faster R-CNN model and predict using detectron2 platform.
@@ -164,10 +163,15 @@ python web.py
 ```
 4. Then visit http://127.0.0.1:33517
   
-![](demo/webapp.png)
+![object detection webapp](demo/webapp.png)
 
-5. (optional) Use **API**  
-If you wish, API is also available, example:
+
+# API Services
+Over time, this project has grown in size and the following services were added:
+![screenshot of API starting log](demo/api_services.jpg)
+
+* **Object Detection API**  
+This service is behind the webapp as discussed above. Returns detection model results.
 ```bash
 # Run server
 cd webapp/
@@ -185,6 +189,54 @@ curl -X POST \
   -F "file=@sample2.jpg" \
   http://localhost:33517/api/v1/predict  # Returns prediction array
 ```
+
+* **DICOM to JPEG**  
+This services supports DICOM in two forms, compressed (gz) or uncompressed (dcm). The file suffix is not important, it automatically checks file type from content to determine whether the file is compressed or not.
+```bash
+curl -X POST -F 'file=@PATH_TO_FILE' http://localhost:33521/upload
+```
+
+* **Hash Router**  
+In larger projects, in order to prevent repeated image uploads, one first converts the DICOM image to JPEG using the previous API, and then uses the resulting hash id in this router so as not to require a repeated upload of the image for use in each service.  
+The hash router would read the provided hash id and load the image before sending the request to the target API. You pass the hash in both `hash: ...` and `data['file']` in the request to the hash router. (as demonstrated below)
+```bash
+curl -X POST "http://localhost:33516/route" \
+     -H "Content-Type: application/json" \
+     -d '{
+          "hash": "ee4daa5e0a8065c4d51be25ef233cdd276bca34de5a36ebc3406c8a82dd41c2a",
+          "data": { 
+              "file": "ee4daa5e0a8065c4d51be25ef233cdd276bca34de5a36ebc3406c8a82dd41c2a"
+          },
+          "endpoint": "http://localhost:33517/api/v1/predict"
+     }'
+
+```
+
+* **Watch Folder API**  
+This service watches a specific directory (`watch_folder`) for new DICOM images, converts them to JPEG using `dicom_to_jpeg` API, and returns the paths. This is particularly useful in `hash_router`.
+```bash
+#List images
+#All
+curl "http://localhost:33522/images"
+#By page
+curl "http://localhost:33522/images?count=10&page=1"
+
+#Get original filename from hash
+curl "http://localhost:33522/hash_to_original?hash=b3244f7af…" {"original_filename":"something.dcm"}
+```
+
+* **Explainable AI**  
+After training the `classification_model.py` you may use the resulting checkpoint (should be present at `classification_output/last.ckpt`) for gradcam heatmap generation.
+```bash
+curl -X POST -F "file=@test/images/20586986.jpg" http://localhost:33519/predict | jq -r '.activation_map' | base64 -d >~/test.jpg
+```
+
+* **Chatbot AI**  
+Modify `llm/config.json` based on the template in that folder to make use of Open AI API in this project. The aim of the chatbot is to receive the output of the prediction model and then chat about the image using those predictions.
+```bash
+curl -X POST http://127.0.0.1:33518/generate-response -H "Content-Type: application/json"  -d '{"prompt": "<user prompt here>", "predictions": "<pass the model predictions array here>"}'
+```
+
 
 ## Evaluate
 ### Evaluation using COCOEvaluator
