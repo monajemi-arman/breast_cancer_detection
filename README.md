@@ -27,19 +27,6 @@ Mammography Mass Detection using Artificial Intelligence;
 - [YOLO](#yolo)
   * [Training](#training)
   * [Prediction](#prediction)
-
-
-# Features
-* **Deep learning model** for mass detection (using Detectron2 and Ultralytics)
-  * API
-  * Web GUI
-  * Train and evaluate
-* **Explainable AI**
-  * ResNet
-  * API
-* **Chatbot** LLM API
-  * Combining previous model prediction with expert opinion
-* **Radiomics**
   
 # Prerequisites
 * Nvidia CUDA drivers
