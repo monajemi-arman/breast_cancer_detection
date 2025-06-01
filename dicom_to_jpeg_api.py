@@ -14,7 +14,7 @@ API_PORT = 33521
 UPLOAD_FOLDER = 'uploaded_images'
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 

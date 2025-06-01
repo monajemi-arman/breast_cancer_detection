@@ -37,7 +37,7 @@ def init_db():
 init_db()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route('/hash_to_original')
 def hash_to_original():

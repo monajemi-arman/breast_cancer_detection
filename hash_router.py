@@ -14,7 +14,7 @@ UPLOAD_FOLDER = 'uploaded_images'
 DEBUG_MODE = False
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 logging.basicConfig(level=logging.DEBUG if DEBUG_MODE else logging.INFO)
 logger = logging.getLogger(__name__)

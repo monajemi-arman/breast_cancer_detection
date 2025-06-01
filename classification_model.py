@@ -117,7 +117,7 @@ def predict_image(model, img_path):
 
 def create_api(model):
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, resources={r"/*": {"origins": "*"}})
 
     @app.route('/predict', methods=['POST'])
     def predict():
