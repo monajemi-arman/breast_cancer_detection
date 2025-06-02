@@ -97,7 +97,7 @@ def get_patient_images():
     image_rel_paths = []
 
     # Case 1: ≤4 images directly in folder
-    image_files = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+    image_files = [f for f in files if f not in ['index', 'index-wal']]
     if 0 < len(image_files) <= 4:
         image_rel_paths = [os.path.join(patient_id, f) for f in image_files]
     # Case 2: ≤4 subfolders, each with one image
@@ -106,7 +106,7 @@ def get_patient_images():
         subfolder_images = []
         for sub in subfolders:
             sub_path = os.path.join(folder_path, sub)
-            imgs = [f for f in os.listdir(sub_path) if os.path.isfile(os.path.join(sub_path, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+            imgs = [f for f in os.listdir(sub_path) if os.path.isfile(os.path.join(sub_path, f)) and f not in ['index', 'index-wal']]
             if len(imgs) != 1:
                 valid = False
                 break
@@ -137,6 +137,7 @@ class FileHandler(FileSystemEventHandler):
 
     def process_file(self, file_path):
         try:
+            time.sleep(0.2)
             rel_path = os.path.relpath(file_path, WATCH_FOLDER)
             result = subprocess.run(['curl', '-X', 'POST', '-F', f'file=@{file_path}', UPLOAD_URL], 
                                   capture_output=True, text=True)
@@ -169,13 +170,69 @@ class FileHandler(FileSystemEventHandler):
         except Exception as e:
             print(f"Error processing {file_path}: {str(e)}")
 
+class UploadedImagesHandler(FileSystemEventHandler):
+    def on_deleted(self, event):
+        if not event.is_directory and event.src_path.endswith('.jpg'):
+            filename = os.path.basename(event.src_path)
+            if filename.startswith('thumb_'):
+                return  # Ignore thumbnails
+            file_hash = filename.replace('.jpg', '')
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            c.execute("DELETE FROM file_hashes WHERE hash=?", (file_hash,))
+            conn.commit()
+            conn.close()
+            print(f"Removed DB entry for deleted image: {file_hash}")
+
 def start_file_watcher():
     observer = Observer()
     observer.schedule(FileHandler(), WATCH_FOLDER, recursive=True)
+    observer.schedule(UploadedImagesHandler(), UPLOADED_IMAGES_DIR, recursive=False)
     observer.start()
     return observer
 
+def process_existing_files():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    for root, dirs, files in os.walk(WATCH_FOLDER):
+        for file in files:
+            if file.lower() in ['index', 'index-wal']:
+                continue
+            file_path = os.path.join(root, file)
+            rel_path = os.path.relpath(file_path, WATCH_FOLDER)
+            c.execute("SELECT hash FROM file_hashes WHERE original_filename=?", (rel_path,))
+            row = c.fetchone()
+            needs_processing = False
+            if not row:
+                needs_processing = True
+            else:
+                file_hash = row[0]
+                image_path = os.path.join(UPLOADED_IMAGES_DIR, f"{file_hash}.jpg")
+                if not os.path.exists(image_path):
+                    needs_processing = True
+            if needs_processing:
+                FileHandler().process_file(file_path)
+    conn.close()
+
+def cleanup_missing_images():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT hash FROM file_hashes")
+    hashes = [row[0] for row in c.fetchall()]
+    removed = 0
+    for file_hash in hashes:
+        image_path = os.path.join(UPLOADED_IMAGES_DIR, f"{file_hash}.jpg")
+        if not os.path.exists(image_path):
+            c.execute("DELETE FROM file_hashes WHERE hash=?", (file_hash,))
+            removed += 1
+    if removed:
+        print(f"Removed {removed} entries from file_hashes for missing images.")
+    conn.commit()
+    conn.close()
+
 def main():
+    cleanup_missing_images()
+    process_existing_files()  # Process files already in the watch folder
     observer = start_file_watcher()
     print(f"Watching {WATCH_FOLDER}")
     print(f"API running on port {API_PORT}")
