@@ -195,7 +195,7 @@ class UploadedImagesHandler(FileSystemEventHandler):
             c.execute("DELETE FROM file_hashes WHERE hash=?", (file_hash,))
             conn.commit()
             conn.close()
-            print(f"Removed DB entry for deleted image: {file_hash}")
+            print(f"Removed DB entry for deleted image: {file_hash} because the image file was deleted from disk.")
 
 
 class FileHandler(FileSystemEventHandler):
@@ -236,6 +236,7 @@ class FileHandler(FileSystemEventHandler):
 
         # Upload file to server (simulate or implement as needed)
         try:
+            time.sleep(0.2)
             result = subprocess.run(
                 ["curl", "-F", f"file=@{file_path}", UPLOAD_URL],
                 capture_output=True,
@@ -280,15 +281,18 @@ class FileHandler(FileSystemEventHandler):
             row = c.fetchone()
             if row:
                 old_hash = row[0]
-                # Remove old DB entry
-                c.execute("DELETE FROM file_hashes WHERE hash=?", (old_hash,))
-                # Remove old image and thumbnail if exist
-                old_image = os.path.join(UPLOADED_IMAGES_DIR, f"{old_hash}.jpg")
-                old_thumb = os.path.join(UPLOADED_IMAGES_DIR, f"thumb_{old_hash}.jpg")
-                if os.path.exists(old_image):
-                    os.remove(old_image)
-                if os.path.exists(old_thumb):
-                    os.remove(old_thumb)
+                if old_hash != file_hash:  # Only remove if different file
+                    # Remove old DB entry
+                    c.execute("DELETE FROM file_hashes WHERE hash=?", (old_hash,))
+                    # Remove old image and thumbnail if exist
+                    old_image = os.path.join(UPLOADED_IMAGES_DIR, f"{old_hash}.jpg")
+                    old_thumb = os.path.join(UPLOADED_IMAGES_DIR, f"thumb_{old_hash}.jpg")
+                    if os.path.exists(old_image):
+                        os.remove(old_image)
+                        print(f"Removed image {old_image} because a new file for patient '{patient_name}' and view '{view_position}' was uploaded with a different hash.")
+                    if os.path.exists(old_thumb):
+                        os.remove(old_thumb)
+                        print(f"Removed thumbnail {old_thumb} for the same reason.")
             conn.commit()
             conn.close()
 
