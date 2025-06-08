@@ -261,6 +261,37 @@ class FileHandler(FileSystemEventHandler):
 
         write_time = os.path.getmtime(file_path)
         patient_name = get_patient_name(file_path)
+
+        # Extract ViewPosition from DICOM
+        try:
+            ds = pydicom.dcmread(file_path, stop_before_pixels=True)
+            view_position = str(getattr(ds, "ViewPosition", "")).strip()
+        except Exception:
+            view_position = ""
+
+        # If ViewPosition and patient_name are available, check for existing entry
+        if patient_name and view_position:
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            c.execute(
+                "SELECT hash FROM file_hashes WHERE patient_name=? AND dicom_metadata LIKE ?",
+                (patient_name, f'%{json.dumps(view_position)[1:-1]}%')
+            )
+            row = c.fetchone()
+            if row:
+                old_hash = row[0]
+                # Remove old DB entry
+                c.execute("DELETE FROM file_hashes WHERE hash=?", (old_hash,))
+                # Remove old image and thumbnail if exist
+                old_image = os.path.join(UPLOADED_IMAGES_DIR, f"{old_hash}.jpg")
+                old_thumb = os.path.join(UPLOADED_IMAGES_DIR, f"thumb_{old_hash}.jpg")
+                if os.path.exists(old_image):
+                    os.remove(old_image)
+                if os.path.exists(old_thumb):
+                    os.remove(old_thumb)
+            conn.commit()
+            conn.close()
+
         # Get and filter DICOM metadata
         try:
             ds = pydicom.dcmread(file_path, stop_before_pixels=True)
