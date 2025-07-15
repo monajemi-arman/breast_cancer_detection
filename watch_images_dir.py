@@ -12,6 +12,7 @@ from flask_cors import CORS
 import pydicom
 import hashlib
 import collections.abc
+import sys
 
 BREAST_ONLY = True  # Set to True if only breast images are to be processed
 WATCH_FOLDER = "./watch_folder"
@@ -23,6 +24,22 @@ API_PORT = 33522
 
 os.makedirs(WATCH_FOLDER, exist_ok=True)
 os.makedirs(UPLOADED_IMAGES_DIR, exist_ok=True)
+
+if "--clear-database" in sys.argv:
+    confirm = input("Are you sure you want to delete all images and the database? (y/N): ").strip().lower()
+    if confirm == "y":
+        # Remove all images in uploaded_images/
+        for fname in os.listdir(UPLOADED_IMAGES_DIR):
+            fpath = os.path.join(UPLOADED_IMAGES_DIR, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
+        # Remove the database file
+        if os.path.exists(DB_FILE):
+            os.remove(DB_FILE)
+        print("All images and the database have been deleted.")
+    else:
+        print("Aborted.")
+        sys.exit(0)
 
 
 def init_db():
