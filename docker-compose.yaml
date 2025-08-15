@@ -3,11 +3,13 @@ version: '3.8'
 services:
   mammo:
     build: .
-    container_name: mammo
     ports:
       - "3000-3006:3000-3006"
       - "33510-33530:33510-33530"
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-    user: user
+    working_dir: "/breast_cancer_detection"
+    volumes:
+      - ./:/breast_cancer_detection
+    command: "bash -c 'python start_api_services.py || sleep infinity'"
     restart: unless-stopped
