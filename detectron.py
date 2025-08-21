@@ -248,6 +248,7 @@ def evaluate_test_to_coco(cfg, parsed=None):
     # Read images from the specified directory
     image_paths = list(Path(image_dir).glob("*.jpg")) + list(Path(image_dir).glob("*.png"))
 
+    image_id_counter = 0
     for image_path in image_paths:
         image = cv2.imread(str(image_path))
         if image is None:
@@ -262,7 +263,7 @@ def evaluate_test_to_coco(cfg, parsed=None):
         image_id = image_path.stem
 
         results_json['images'].append({
-            "id": int(image_id),
+            "id": image_id_counter,
             "file_name": image_path.name,
             "width": image.shape[1],
             "height": image.shape[0],
@@ -272,11 +273,12 @@ def evaluate_test_to_coco(cfg, parsed=None):
             x, y, w, h = box
             results_json['annotations'].append({
                 "id": len(results_json['annotations']) + 1,
-                "image_id": int(image_id),
+                "image_id": image_id_counter,
                 "category_id": int(cls),
                 "bbox": [float(x), float(y), float(w) - float(x), float(h) - float(y)],
                 "score": float(score),
             })
+        image_id_counter += 1
 
     output_json_path = parsed.output_path if parsed.output_path else "predictions.json"
     with open(output_json_path, 'w') as json_file:
