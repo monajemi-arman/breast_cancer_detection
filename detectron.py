@@ -245,26 +245,28 @@ def evaluate_test_to_coco(cfg, parsed=None):
         "categories": [{"id": i, "name": str(i)} for i in range(len(MetadataCatalog.get(cfg.DATASETS.TRAIN[0]).thing_classes))],
     }
 
-    # Read images from the specified directory
-    image_paths = list(Path(image_dir).glob("*.jpg")) + list(Path(image_dir).glob("*.png"))
+    # Read images from JSON
+    image_ids = []
+    image_id_to_name = {}
+    with open(coco_json['test']) as f:
+        test_json = json.load(f)
+        for image in test_json['images']:
+            image_ids.append(image['id'])
+            image_id_to_name.update({image['id']: image['file_name']})
 
-    image_id_counter = 0
-    for image_path in image_paths:
+    for image_id in image_ids:
+        image_name = image_id_to_name[image_id]
+        image_path = os.path.join(image_dir, image_name)
         image = cv2.imread(str(image_path))
-        if image is None:
-            print(f"Warning: Unable to load image {image_path}. Skipping.")
-            continue
 
         predictions = predictor(image)
         pred_boxes = predictions['instances'].pred_boxes.tensor.cpu().numpy()
         scores = predictions['instances'].scores.cpu().numpy()
         pred_classes = predictions['instances'].pred_classes.cpu().numpy()
 
-        image_id = image_path.stem
-
         results_json['images'].append({
-            "id": image_id_counter,
-            "file_name": image_path.name,
+            "id": image_id,
+            "file_name": image_name,
             "width": image.shape[1],
             "height": image.shape[0],
         })
@@ -273,12 +275,11 @@ def evaluate_test_to_coco(cfg, parsed=None):
             x, y, w, h = box
             results_json['annotations'].append({
                 "id": len(results_json['annotations']) + 1,
-                "image_id": image_id_counter,
+                "image_id": image_id,
                 "category_id": int(cls),
                 "bbox": [float(x), float(y), float(w) - float(x), float(h) - float(y)],
                 "score": float(score),
             })
-        image_id_counter += 1
 
     output_json_path = parsed.output_path if parsed.output_path else "predictions.json"
     with open(output_json_path, 'w') as json_file:
