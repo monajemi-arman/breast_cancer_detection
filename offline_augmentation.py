@@ -41,6 +41,29 @@ def parse_args():
                         help='If set, converts COCO annotations to YOLO format at the end.')
     return parser.parse_args()
 
+def augment_worker(args_tuple):
+    image_info, image_id_to_annotations, args = args_tuple
+    image_filename = image_info['file_name']
+    image_path = os.path.join(args.input_image_folder, image_filename)
+    image = cv2.imread(image_path)
+    if image is None:
+        return None
+    image_id = image_info['id']
+    annotations = image_id_to_annotations.get(image_id, [])
+    bboxes = [anno['bbox'] for anno in annotations]
+    category_ids = [anno['category_id'] for anno in annotations]
+    results = []
+    for i in range(n_times):
+        augmented = transform(image=image, bboxes=bboxes, category_ids=category_ids)
+        augmented_image = augmented['image']
+        augmented_bboxes = augmented['bboxes']
+        augmented_category_ids = augmented['category_ids']
+        augmented_image_filename = f"{os.path.splitext(image_filename)[0]}_aug_{i}.jpg"
+        output_image_path = os.path.join(args.output_image_folder, augmented_image_filename)
+        cv2.imwrite(output_image_path, augmented_image)
+        results.append((augmented_image_filename, image_info, augmented_bboxes, augmented_category_ids))
+    return results
+
 # Main augmentation process
 def main():
     args = parse_args()
@@ -65,29 +88,6 @@ def main():
 
     new_image_id = max(image['id'] for image in coco_data['images']) + 1
     new_annotation_id = max(anno['id'] for anno in coco_data['annotations']) + 1
-
-    def augment_worker(args_tuple):
-        image_info, image_id_to_annotations, args = args_tuple
-        image_filename = image_info['file_name']
-        image_path = os.path.join(args.input_image_folder, image_filename)
-        image = cv2.imread(image_path)
-        if image is None:
-            return None
-        image_id = image_info['id']
-        annotations = image_id_to_annotations.get(image_id, [])
-        bboxes = [anno['bbox'] for anno in annotations]
-        category_ids = [anno['category_id'] for anno in annotations]
-        results = []
-        for i in range(n_times):
-            augmented = transform(image=image, bboxes=bboxes, category_ids=category_ids)
-            augmented_image = augmented['image']
-            augmented_bboxes = augmented['bboxes']
-            augmented_category_ids = augmented['category_ids']
-            augmented_image_filename = f"{os.path.splitext(image_filename)[0]}_aug_{i}.jpg"
-            output_image_path = os.path.join(args.output_image_folder, augmented_image_filename)
-            cv2.imwrite(output_image_path, augmented_image)
-            results.append((augmented_image_filename, image_info, augmented_bboxes, augmented_category_ids))
-        return results
 
     # Prepare image list for augmentation
     images_to_augment = [img for img in coco_data['images'] if re.match(args.custom_regex, img['file_name'])]
