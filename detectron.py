@@ -30,7 +30,7 @@ from detectron2.utils.events import EventStorage
 # --- Parameters --- #
 # Trainer
 epochs = 100
-checkpoint_period = 2  # Save every 10 epochs
+checkpoint_period = 1  # Save every 10 epochs
 batch_size = 4
 num_workers = 4
 pretrained = True

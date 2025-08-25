@@ -19,6 +19,7 @@ import shutil
 import pandas as pd
 import argparse
 from utils import yolo_to_coco
+import subprocess  # Add this import
 
 # -- How to Use --- #
 # The folder in which this script is located in must contain:
@@ -46,6 +47,7 @@ low_high_mode = True
 split_mode = True
 split_ratio = [0.8, 0.1, 0.1]
 split_not_in_mask_mode = True  # Must be set to true for to_3d_nrrd.py to work properly
+offline_augmentation_enabled = True  # Toggle for offline augmentation
 
 # --- Input paths --- #
 # INBreast Dataset
@@ -558,6 +560,56 @@ if split_mode:
         }
         with open(yaml_out, 'w') as f:
             yaml.dump(yaml_data, f)
+
+    # --- Offline Augmentation Section ---
+    if offline_augmentation_enabled:
+        for directory in split_dirs:
+            image_dir = os.path.join(directory, image_out_dir)
+            coco_json = os.path.join(directory, 'train.json' if directory == 'train' else directory + '.json')
+            aug_image_dir = os.path.join(directory, image_out_dir + '_aug')
+            aug_json = os.path.join(directory, 'aug.json')
+            labels_dir = os.path.join(directory, txt_out_dir)
+            # For YOLO, use COCO conversion for augmentation, then convert back
+            if output_choice == 'yolo':
+                # Augment using COCO json
+                subprocess.run([
+                    sys.executable, 'offline_augmentation.py',
+                    '--input_image_folder', image_dir,
+                    '--input_annotation_file', coco_json,
+                    '--output_image_folder', aug_image_dir,
+                    '--output_annotation_file', aug_json,
+                    '--append'
+                ], check=True)
+                # Convert augmented COCO back to YOLO
+                from utils import coco_to_yolo
+                coco_to_yolo(aug_json, labels_dir, aug_image_dir)
+                # Optionally, move augmented images to main image dir
+                for fname in os.listdir(aug_image_dir):
+                    src = os.path.join(aug_image_dir, fname)
+                    dst = os.path.join(image_dir, fname)
+                    if not os.path.exists(dst):
+                        shutil.move(src, dst)
+                os.remove(aug_json)
+                os.rmdir(aug_image_dir)
+            elif output_choice == 'coco':
+                # Augment using COCO json
+                subprocess.run([
+                    sys.executable, 'offline_augmentation.py',
+                    '--input_image_folder', image_dir,
+                    '--input_annotation_file', coco_json,
+                    '--output_image_folder', aug_image_dir,
+                    '--output_annotation_file', aug_json,
+                    '--append'
+                ], check=True)
+                # Move augmented images to main image dir
+                for fname in os.listdir(aug_image_dir):
+                    src = os.path.join(aug_image_dir, fname)
+                    dst = os.path.join(image_dir, fname)
+                    if not os.path.exists(dst):
+                        shutil.move(src, dst)
+                # Replace original COCO json with augmented one
+                shutil.move(aug_json, coco_json)
+                os.rmdir(aug_image_dir)
 
     # Clean up empty directories
     for directory in [image_out_dir, out_dir]:
