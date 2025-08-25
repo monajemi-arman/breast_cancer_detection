@@ -565,13 +565,13 @@ if split_mode:
     if offline_augmentation_enabled:
         for directory in split_dirs:
             image_dir = os.path.join(directory, image_out_dir)
-            coco_json = os.path.join(directory, 'train.json' if directory == 'train' else directory + '.json')
+            # Use ./train.json, ./val.json, ./test.json
+            coco_json = f"{directory}.json"
             aug_image_dir = os.path.join(directory, image_out_dir + '_aug')
             aug_json = os.path.join(directory, 'aug.json')
             labels_dir = os.path.join(directory, txt_out_dir)
             # For YOLO, use COCO conversion for augmentation, then convert back
             if output_choice == 'yolo':
-                # Augment using COCO json
                 subprocess.run([
                     sys.executable, 'offline_augmentation.py',
                     '--input_image_folder', image_dir,
@@ -580,10 +580,8 @@ if split_mode:
                     '--output_annotation_file', aug_json,
                     '--append'
                 ], check=True)
-                # Convert augmented COCO back to YOLO
                 from utils import coco_to_yolo
                 coco_to_yolo(aug_json, labels_dir, aug_image_dir)
-                # Optionally, move augmented images to main image dir
                 for fname in os.listdir(aug_image_dir):
                     src = os.path.join(aug_image_dir, fname)
                     dst = os.path.join(image_dir, fname)
@@ -592,7 +590,6 @@ if split_mode:
                 os.remove(aug_json)
                 os.rmdir(aug_image_dir)
             elif output_choice == 'coco':
-                # Augment using COCO json
                 subprocess.run([
                     sys.executable, 'offline_augmentation.py',
                     '--input_image_folder', image_dir,
@@ -601,13 +598,11 @@ if split_mode:
                     '--output_annotation_file', aug_json,
                     '--append'
                 ], check=True)
-                # Move augmented images to main image dir
                 for fname in os.listdir(aug_image_dir):
                     src = os.path.join(aug_image_dir, fname)
                     dst = os.path.join(image_dir, fname)
                     if not os.path.exists(dst):
                         shutil.move(src, dst)
-                # Replace original COCO json with augmented one
                 shutil.move(aug_json, coco_json)
                 os.rmdir(aug_image_dir)
 
