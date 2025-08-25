@@ -24,11 +24,13 @@ from matplotlib.widgets import Slider, Button
 from sklearn.metrics import precision_recall_curve
 from torchvision.ops import box_iou
 from filters import ImageFilterProcessor
+from detectron2.engine import HookBase
+from detectron2.utils.events import EventStorage
 
 # --- Parameters --- #
 # Trainer
 epochs = 100
-checkpoint_period = 5  # Save every 10 epochs
+checkpoint_period = 2  # Save every 10 epochs
 batch_size = 4
 num_workers = 4
 pretrained = True
@@ -187,12 +189,63 @@ def visualize_predictions(image, predictions, dataset_path=None, file_name=None,
     update(initial_threshold)
     plt.show()
 
+class EarlyStoppingHook(HookBase):
+    def __init__(self, patience=10, metric_name="validation_loss"):
+        self.patience = patience
+        self.metric_name = metric_name
+        self.best_metric = float("inf")
+        self.counter = 0
+
+    def after_step(self):
+        storage = self.trainer.storage
+        current_metric = storage.latest().get(self.metric_name, None)
+        if current_metric is not None:
+            if current_metric < self.best_metric:
+                self.best_metric = current_metric
+                self.counter = 0
+            else:
+                self.counter += 1
+            if self.counter >= self.patience:
+                print("Early stopping triggered.")
+                self.trainer._shutdown = True
+
+class BestCheckpointHook(HookBase):
+    def __init__(self, metric_name="validation_loss", output_dir="./output"):
+        self.metric_name = metric_name
+        self.best_metric = float("inf")
+        self.output_dir = output_dir
+
+    def after_step(self):
+        storage = self.trainer.storage
+        current_metric = storage.latest().get(self.metric_name, None)
+        if current_metric is not None and current_metric < self.best_metric:
+            self.best_metric = current_metric
+            self.trainer.checkpointer.save("best_model")
+
 def train(cfg, parsed=None):
     trainer = DefaultTrainer(cfg)
-    if cfg.MODEL.WEIGHTS or parsed.weights_path:
-        if parsed.weights_path:
+    # Mixed precision training
+    if torch.cuda.is_available():
+        cfg.SOLVER.AMP.ENABLED = True
+    # Gradient clipping
+    cfg.SOLVER.CLIP_GRADIENTS.ENABLED = True
+    cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE = "value"
+    cfg.SOLVER.CLIP_GRADIENTS.CLIP_VALUE = 1.0
+    # Learning rate scheduler (already in Detectron2, but can be customized)
+    cfg.SOLVER.LR_SCHEDULER_NAME = "WarmupMultiStepLR"
+    # Add hooks for early stopping and best checkpoint
+    trainer.register_hooks([
+        EarlyStoppingHook(patience=10, metric_name="validation_loss"),
+        BestCheckpointHook(metric_name="validation_loss", output_dir=cfg.OUTPUT_DIR)
+    ])
+    # Resume logic
+    resume_flag = getattr(parsed, "resume", False)
+    if cfg.MODEL.WEIGHTS or (parsed and parsed.weights_path):
+        if parsed and parsed.weights_path:
             cfg.MODEL.WEIGHTS = parsed.weights_path
-        trainer.resume_or_load(resume=False)
+        trainer.resume_or_load(resume=resume_flag)
+    else:
+        trainer.resume_or_load(resume=resume_flag)
     trainer.train()
 
 def predict(cfg, parsed, visualize=True):
@@ -515,6 +568,7 @@ def main():
     argparser.add_argument('-f', '--filter', type=str, choices=filters_list)
     argparser.add_argument('-w', '--weights-path', type=str)
     argparser.add_argument('-o', '--output-path', type=str)
+    argparser.add_argument('--resume', action='store_true', help="Resume training from last checkpoint")
     parsed = argparser.parse_args()
 
     choice = None
