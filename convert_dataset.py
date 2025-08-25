@@ -209,7 +209,7 @@ if 'inbreast' in chosen_datasets:
             dcm_prefix = Path(inbreast_xml).stem
             patient_dir = None
             for filename in os.listdir(inbreast_dcm_dir):
-                if re.match(dcm_prefix + '.*\.dcm', filename):
+                if re.match(dcm_prefix + r'.*\.dcm', filename):
                     patient_dir = os.path.join(inbreast_dcm_dir, filename)
                     break
             if not patient_dir:
