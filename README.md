@@ -1,9 +1,12 @@
-# Breast Cancer Detection
+# Breast Cancer Detection 🎗️
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)
+![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
 Mammography Mass Detection using Artificial Intelligence;  
 <p style='text-align: justify;'>Using this project you will be able to train a model on mammography images for suspicious mass detection, deploy a simple web application for inference, and use several tools and API with custom features made for use in larger projects.</p>
 <p style='text-align: justify;'>It started first as a research project training a deep learning model on InBreast, CBIS-DDSM, MIAS datasets of public labeled mammography images. As the results were promising, we decided to expand the project and to implement tools and API services for local integration with current clinical applications. We gathered local labeled mammography images and made possible the use of customized AI in local hospitals.</p>
 
-# Table of Contents
+# Table of Contents 📖
 - [Features](#features)
 - [Prerequisites](#prerequisites)
 - [Datasets](#datasets)
@@ -16,23 +19,21 @@ Mammography Mass Detection using Artificial Intelligence;
   * [Evaluate](#evaluate)
   * [Web Application](#web-application)
 - [API Services](#api-services)
-  * [**Object Detection API**](#--object-detection-api--)
-  * [**DICOM to JPEG**](#--dicom-to-jpeg--)
-  * [**Hash Router**](#--hash-router--)
-  * [**Watch Folder API**](#--watch-folder-api--)
-  * [**Explainable AI**](#--explainable-ai--)
-  * [**Chatbot AI**](#--chatbot-ai--)
-- [Explainable AI](#explainable-ai)
-- [LLM API](#llm-api)
+  * [Object Detection API](#object-detection-api)
+  * [DICOM to JPEG](#dicom-to-jpeg)
+  * [Hash Router](#hash-router)
+  * [Watch Folder API](#watch-folder-api)
+- [Explainable AI (XAI) Model & API](#explainable-ai-xai-model--api)
+- [LLM (Chatbot) API](#llm-chatbot-api)
 - [YOLO](#yolo)
   * [Training](#training)
   * [Prediction](#prediction)
   
-# Prerequisites
+# Prerequisites 🛠️
 * Nvidia CUDA drivers
   * Install a PyTorch compatible version of CUDA from:
     * Your Linux repository
-    ```commandline
+    ```bash
     apt install nvidia-cuda-toolkit
     ```
     * NVIDIA website for Windows and Linux
@@ -56,7 +57,7 @@ The two above must be installed __manually__ or else will break installation of 
   sudo apt install nvidia-container-toolkit
   ```
 
-# Datasets
+# Datasets 📊
 
 Supported datasets:
 * InBreast
@@ -70,7 +71,7 @@ Supported models:
   * Any model that supports YOLO / COCO style dataset
 * Customized [UaNet](https://github.com/uci-cbcl/UaNet/) for 2D mammography images
 
-## Download
+## Download ⬇️
 ### Google Colab
 * Use download_datasets_colab.ipynb jupyter notebook in Google Colab to download all datasets.
 * You will need to upload your _'kaggle.json'_ when the notebook gives you an upload dialog.
@@ -97,7 +98,7 @@ Download the above datasets and after cloning this repository, create the follow
 
 Copy datasets to directories accordingly.
 
-## Visualizer
+## Visualizer 🖼️
 After converting the datasets to COCO / YOLO style in the next section (Usage),
 you may visualize the standardized dataset using the following methods.
 ### COCO Style dataset
@@ -111,7 +112,7 @@ python visualizer.py -m yolo -d train/images -l train/labels
 
 ![](demo/visualizer.png)
 
-# Usage
+# Usage 🚀
 **1. Clone this repository**
 ```bash
 git clone https://github.com/monajemi-arman/breast_cancer_detection
@@ -121,12 +122,12 @@ git clone https://github.com/monajemi-arman/breast_cancer_detection
 cd breast_cancer_detection
 pip install --no-build-isolation -r requirements.txt
 ```
-**2. Download the following datasets**  
+**3. Download the following datasets**  
 https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset  
 https://wiki.cancerimagingarchive.net/pages/viewpage.action?pageId=22516629  
 https://www.kaggle.com/datasets/kmader/mias-mammography  
 
-**3. Move dataset files**  
+**4. Move dataset files**  
 First create 'datasets' directory:
 ```bash
 mkdir datasets/
@@ -136,36 +137,36 @@ Then, extract and move the files to this directory so as to have the following i
 * CBIS-DDSM/
 * all-mias/
 
-**4. Convert datasets to YOLO (and COCO) format**
+**5. Convert datasets to YOLO (and COCO) format**
 ```bash
 python convert_dataset.py
 ```
 After completion, images/, labels/, dataset.yaml, annotations.json would be present in the working directory. 
 
-**5. (optional) Apply additional filters to images**  
+**6. (optional) Apply additional filters to images**  
 If necessary, you may apply these filters to images using our script: _canny, clahe, gamma, histogram, unsharp  
 You may enter one of the above filters in command line (-f). 
 ```bash
 python filters.py -i PATH_TO_IMAGE_DIRECTORY -o OUTPUT_IMAGE_DIRECTORY -f FILTER_NAME
 ```
-# Detectron (Faster R-CNN)
-## Train
+# Detectron (Faster R-CNN) 🧠
+## Train 🚂
 The purpose of detectron.py is to train and evaluate a Faster R-CNN model and predict using detectron2 platform.
 ```bash
 python detectron.py -c train
 ```
-## Predict
+## Predict 🔮
 * Visualize model prediction
 * Show ground truth and labels
 * Filter predictions by confidence score
-``` bash
+```bash
 # After training is complete
 python detectron.py -c predict -w output/model_final.pth -i <image path>
 # -w: path to model weights
 ```
 ![detectron prediction visualizer](demo/detectron_predict_visualize.png)
 
-## Web Application
+## Web Application 🌐
 ### Usage
 1. Run train step as explained above
 2. Copy 'detectron.cfg.pkl' and the last model checkpoint to webapp/model.pth .  
@@ -179,7 +180,7 @@ python web.py
   
 ![object detection webapp](demo/webapp.png)
 
-## Evaluate
+## Evaluate ✅
 ### Evaluation using COCOEvaluator
 * Calculate mAP
 * Uses test dataset by default
@@ -195,11 +196,10 @@ python detectron.py -c evaluate -w output/model_final.pth
 python detectron.py -c evaluate_test_to_coco -w output/model_final.pth
 ```
 
-# API Services
+# API Services 🔌
 Over time, this project has grown in size and the following services were added:
-![screenshot of API starting log](demo/api_services.jpg)
 
-## **Object Detection API**  
+## Object Detection API 🎯 
 This service is behind the webapp as discussed above. Returns detection model results.
 ```bash
 # Run server
@@ -219,13 +219,13 @@ curl -X POST \
   http://localhost:33517/api/v1/predict  # Returns prediction array
 ```
 
-## **DICOM to JPEG**  
+## DICOM to JPEG 🖼️➡️📸 
 This services supports DICOM in two forms, compressed (gz) or uncompressed (dcm). The file suffix is not important, it automatically checks file type from content to determine whether the file is compressed or not.
 ```bash
 curl -X POST -F 'file=@PATH_TO_FILE' http://localhost:33521/upload
 ```
 
-## **Hash Router**  
+## Hash Router 🔗 
 In larger projects, in order to prevent repeated image uploads, one first converts the DICOM image to JPEG using the previous API, and then uses the resulting hash id in this router so as not to require a repeated upload of the image for use in each service.  
 The hash router would read the provided hash id and load the image before sending the request to the target API. You pass the hash in both `hash: ...` and `data['file']` in the request to the hash router. (as demonstrated below)
 ```bash
@@ -241,7 +241,7 @@ curl -X POST "http://localhost:33516/route" \
 
 ```
 
-## **Watch Folder API**  
+## Watch Folder API 👀 
 This service watches a specific directory (`watch_folder`) for new DICOM images, converts them to JPEG using `dicom_to_jpeg` API, and returns the paths. This is particularly useful in `hash_router`.
 ```bash
 #List images
@@ -254,19 +254,7 @@ curl "http://localhost:33522/images?count=10&page=1"
 curl "http://localhost:33522/hash_to_original?hash=b3244f7af…" {"original_filename":"something.dcm"}
 ```
 
-## **Explainable AI**  
-After training the `classification_model.py` you may use the resulting checkpoint (should be present at `classification_output/last.ckpt`) for gradcam heatmap generation.
-```bash
-curl -X POST -F "file=@test/images/20586986.jpg" http://localhost:33519/predict | jq -r '.activation_map' | base64 -d >~/test.jpg
-```
-
-## **Chatbot AI**  
-Modify `llm/config.json` based on the template in that folder to make use of Open AI API in this project. The aim of the chatbot is to receive the output of the prediction model and then chat about the image using those predictions.
-```bash
-curl -X POST http://127.0.0.1:33518/generate-response -H "Content-Type: application/json"  -d '{"prompt": "<user prompt here>", "predictions": "<pass the model predictions array here>"}'
-```
-
-# Explainable AI
+# Explainable AI (XAI) Model & API ✨
 First you must train classification model on the data.  
 The datasets contain data suitable for object detection. Therefore, you must first convert into classification dataset:
 * **Convert dataset for classification**
@@ -293,7 +281,7 @@ curl -X POST -F "file=@test/images/20586986.jpg" http://localhost:33519/predict 
 
 ---
 
-# LLM API
+# LLM (Chatbot) API 💬
 * **Setup config**  
 Inside llm/ directory, create _'config.json'_ based on _'config.json.default'_ template.
   
@@ -310,8 +298,8 @@ curl -X POST http://localhost:33518/generate-response \
 ```
 
 ---
-# YOLO
-## Training
+# YOLO ⚡
+## Training 🏋️‍♀️
 * Install Ultralytics
 ```bash
 pip install ultralytics
@@ -321,13 +309,13 @@ pip install ultralytics
 yolo train data=dataset.yaml model=yolov8n
 
 ```
-## Prediction
+## Prediction 🚀
 Example of prediction using YOLO ultralytics framework:
 ```bash
 yolo predict model=runs/detect/train/weights/best.pt source=images/cb_1.jpg conf=0.1 
 ```
 ---
-# UaNet (Deprecated)
+# UaNet (Deprecated) ⚠️
 ## Training
 * Clone UaNet repository (patched)
 ```bash
