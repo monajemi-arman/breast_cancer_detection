@@ -31,10 +31,8 @@ def parse_args():
     parser.add_argument('--output_image_folder', type=str, required=True, help='Path to save augmented images.')
     parser.add_argument('--output_annotation_file', type=str, required=True,
                         help='Path to save augmented annotations in COCO format.')
-    parser.add_argument('--custom_regex', type=str, default=".*",
-                        help='Optional custom regex pattern to match image filenames. Defaults to matching all images.')
-    parser.add_argument('--only_inbreast', action='store_true',
-                        help='If set, only augment images with numerical filenames (e.g., 12345.jpg).')
+    parser.add_argument('--custom_regex', type=str, default=r"^\d+\.(jpg|png|jpeg)$",
+                        help='Optional custom regex pattern to match image filenames. Defaults to matching numerical filenames (e.g., 12345.jpg) for InBreast images.')
     parser.add_argument('--append', action='store_true',
                         help='If set, combines augmented and non-augmented images and annotations.')
     parser.add_argument('--convert_to_yolo', action='store_true',
@@ -67,10 +65,6 @@ def augment_worker(args_tuple):
 # Main augmentation process
 def main():
     args = parse_args()
-
-    # Set regex to numerical only if --only_inbreast is provided
-    if args.only_inbreast:
-        args.custom_regex = r"^\d+\.(jpg|png|jpeg)$"
 
     os.makedirs(args.output_image_folder, exist_ok=True)
 
