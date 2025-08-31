@@ -20,6 +20,7 @@ import pandas as pd
 import argparse
 from utils import yolo_to_coco
 import subprocess  # Add this import
+from tqdm import tqdm # Add this import
 
 # -- How to Use --- #
 # The folder in which this script is located in must contain:
@@ -41,8 +42,11 @@ chosen_classes = ['mass']  # Available options: 'mass', 'calcification'
 # Recommended: YOLO
 # Hacky point: YOLO mode now generates annotations.json for COCO style as well
 output_choice = 'yolo'  # available modes: yolo, mask
-# Use Bi-Rads or not; When True, adds 'mass_low' and 'mass_high' to class names
-low_high_mode = True
+
+# Ask user for low_high_mode
+low_high_input = input("Do you want to use 'mass_low' and 'mass_high' classes (y/n)? ").lower()
+low_high_mode = (low_high_input == 'y')
+
 # Train / Validation / Test split ratio
 split_mode = True
 split_ratio = [0.8, 0.1, 0.1]
@@ -173,7 +177,7 @@ if 'inbreast' in chosen_datasets:
         score = int(re.sub(r'\D', '', score))  # 4a, 4b, 4c => 4
         file_score_pairs[filename] = score
 
-    for inbreast_xml in inbreast_xmls:
+    for inbreast_xml in tqdm(inbreast_xmls, desc="Processing INBreast dataset"):
         image_id += 1
         # Read XML to Dict
         with open(inbreast_xml) as f:
@@ -393,7 +397,7 @@ if 'cbis-ddsm' in chosen_datasets:
     # Bug: Multi class not implemented (NOT_IMPLEMENTED)
     image_id = 0
     if output_choice == 'mask':
-        for item in image_mask_pairs.items():
+        for item in tqdm(image_mask_pairs.items(), desc="Processing CBIS-DDSM masks"):
             image_id += 1
             image_name = 'cbm_' + str(image_id) + '.jpg'
             shutil.copy(os.path.join(cbis_jpeg, item[0]), os.path.join(image_out_dir, image_name))
@@ -416,7 +420,7 @@ if 'cbis-ddsm' in chosen_datasets:
     # YOLO mode
     image_id = 0
     if output_choice == 'yolo':
-        for image_path in image_mask_pairs.keys():
+        for image_path in tqdm(image_mask_pairs.keys(), desc="Processing CBIS-DDSM images"):
             image_id += 1  # Used only for output name
             output_name = "cb_" + str(image_id)
             txt_lines = []
@@ -459,9 +463,13 @@ if 'cbis-ddsm' in chosen_datasets:
 # --- MIAS --- #
 if 'mias' in chosen_datasets:
     with open(mias_info) as f:
-        for line in f.readlines():
+        # Read lines and filter out irrelevant ones for tqdm
+        relevant_lines = [line for line in f.readlines() if line[:3] == 'mdb' and len(line.split(' ')) >= 7]
+    
+    with open(mias_info) as f: # Reopen file for actual processing
+        for line in tqdm(relevant_lines, desc="Processing MIAS dataset"):
             line_parts = line.split(' ')
-            # Skip irrelevant lines
+            # Skip irrelevant lines (already filtered, but keeping check for robustness)
             if line[:3] != 'mdb' or len(line_parts) < 7:
                 continue
             # Image name
@@ -526,7 +534,7 @@ if split_mode:
     file_prefixes = [Path(x).stem for x in os.listdir(out_dir)]
     random.shuffle(file_prefixes)
     i = 0
-    for file_prefix in file_prefixes:
+    for file_prefix in tqdm(file_prefixes, desc="Splitting dataset"):
         i += 1
         # Choose destination
         ratio = i / len(file_prefixes)
