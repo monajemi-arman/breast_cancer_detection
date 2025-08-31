@@ -596,7 +596,7 @@ if split_mode:
                     if not os.path.exists(dst):
                         shutil.move(src, dst)
                 os.remove(aug_json)
-                os.rmdir(aug_image_dir)
+                shutil.rmtree(aug_image_dir)
             elif output_choice == 'coco':
                 subprocess.run([
                     sys.executable, 'offline_augmentation.py',
@@ -612,7 +612,7 @@ if split_mode:
                     if not os.path.exists(dst):
                         shutil.move(src, dst)
                 shutil.move(aug_json, coco_json)
-                os.rmdir(aug_image_dir)
+                shutil.rmtree(aug_image_dir)
 
     # Clean up empty directories
     for directory in [image_out_dir, out_dir]:
