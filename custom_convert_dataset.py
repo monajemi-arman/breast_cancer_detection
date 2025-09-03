@@ -9,6 +9,8 @@ from io import BytesIO
 from pydicom.pixel_data_handlers.util import apply_voi_lut
 from utils import read_dicom
 from argparse import ArgumentParser
+import matplotlib.pyplot as plt # Added for visualization
+from PIL import Image, ImageDraw, ImageFont # Added for visualization
 
 # --- Parameters ---
 input_dataset_path = 'datasets/custom'
@@ -16,6 +18,7 @@ output_dataset_path = 'custom-dataset'
 selected_tags = {'mass_conc_simpCompCyst': 0, 'mass_conc_cmpxBngCyst': 0, 'mass_conc_compxMlgCyst': 1,
                  'mass_conc_bngSldTumor': 0, 'mass_conc_mlgSldTumor': 1}
 image_ext = '.jpg'
+default_canvas_shape=(1100, 636)
 input_images_path = os.path.join(input_dataset_path, 'images')
 input_labels_path = os.path.join(input_dataset_path, 'labels')
 output_images_path = os.path.join(output_dataset_path, 'images')
@@ -25,6 +28,10 @@ output_labels_path = os.path.join(output_dataset_path, 'labels.json')
 parser = ArgumentParser()
 parser.add_argument('--else-labels', dest="ELSE_LABELS_AS_LAST", default=False, action='store_true',
                     help='Generate all labels even if not selected, put them into else')
+parser.add_argument('-j', '--json-file', dest="JSON_FILE", type=str,
+                    help='Path to a single JSON label file for visualization')
+parser.add_argument('-i', '--dicom-file', dest="DICOM_FILE", type=str,
+                    help='Path to a single DICOM image file for visualization')
 parsed = parser.parse_args()
 ELSE_LABELS_AS_LAST = parsed.ELSE_LABELS_AS_LAST
 
@@ -162,7 +169,7 @@ def process_directory(directory_path):
         json.dump(json_data_final, f)
 
 
-def bbox_to_real(bbox, real_shape, canvas_shape=(1100, 636)):
+def bbox_to_real(bbox, real_shape, canvas_shape=default_canvas_shape):
     canvas_width, canvas_height = canvas_shape
     real_width, real_height = real_shape
     x, y, width, height = bbox
@@ -202,8 +209,86 @@ def merge_dicts(dict1, dict2):
     return dict1
 
 
+def visualize_labels(dicom_path, json_path):
+    """
+    Visualizes bounding box labels on a single DICOM image.
+    """
+    print(f"Visualizing labels for DICOM: {dicom_path} and JSON: {json_path}")
+
+    # Load DICOM image
+    try:
+        with open(dicom_path, 'rb') as f:
+            dicom_data = f.read()
+        image = read_dicom(BytesIO(dicom_data))
+    except Exception as e:
+        print(f"Error loading DICOM image {dicom_path}: {e}")
+        return
+
+    real_width, real_height = image.size
+    real_shape = (real_width, real_height)
+
+    # Load JSON labels
+    try:
+        with open(json_path, 'r') as f:
+            json_data = json.load(f)
+    except Exception as e:
+        print(f"Error loading JSON file {json_path}: {e}")
+        return
+
+    draw = ImageDraw.Draw(image)
+
+    # Calculate dynamic line thickness and font size
+    min_dim = min(real_width, real_height)
+    line_thickness = max(2, int(min_dim * 0.005))
+    font_size = max(20, int(min_dim * 0.02))
+
+    try:
+        font = ImageFont.truetype("arial.ttf", font_size)
+    except IOError:
+        font = ImageFont.load_default()
+        print("Could not load 'arial.ttf', using default font.")
+
+    for rectangle in json_data.get('rectangles', []):
+        bbox_canvas = (rectangle['x'], rectangle['y'], rectangle['width'], rectangle['height'])
+        tags = rectangle.get('tag', ['No Tag'])
+
+        real_bbox = bbox_to_real(bbox_canvas, real_shape, canvas_shape=default_canvas_shape)
+
+        if real_bbox:
+            x, y, w, h = real_bbox
+            print(f"Drawing real bbox: {real_bbox} for tags: {tags}")
+            # Convert to (x1, y1, x2, y2)
+            draw.rectangle([x, y, x + w, y + h], outline="red", width=line_thickness)
+            tag_text = ", ".join(tags)
+            text_y_pos = y - (font_size + 5) if y - (font_size + 5) > 0 else y + 5
+            draw.text((x, text_y_pos), tag_text, fill="red", font=font)
+
+    # Create a figure and try to maximize it
+    fig = plt.figure(figsize=(15, 15))
+    try:
+        # Attempt to maximize the plot window for better visibility
+        mng = plt.get_current_fig_manager()
+        if hasattr(mng, 'window') and hasattr(mng.window, 'state'):
+            mng.window.state('zoomed')
+        elif hasattr(mng, 'window') and hasattr(mng.window, 'showMaximized'):
+            mng.window.showMaximized()
+        elif hasattr(mng, 'full_screen_toggle'): # Generic full screen toggle
+            mng.full_screen_toggle()
+    except Exception as e:
+        print(f"Could not maximize plot window: {e}")
+        print("Plot might not be full screen. Consider adjusting figsize manually if needed.")
+
+    plt.imshow(image, cmap='gray')
+    plt.title(f"Labels for {Path(dicom_path).name}")
+    plt.axis('off')
+    plt.show()
+
+
 def main():
-    process_directory(input_images_path)
+    if parsed.JSON_FILE and parsed.DICOM_FILE:
+        visualize_labels(parsed.DICOM_FILE, parsed.JSON_FILE)
+    else:
+        process_directory(input_images_path)
 
 
 if __name__ == '__main__':
