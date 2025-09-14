@@ -5,6 +5,7 @@ import cv2
 import pydicom
 import numpy as np
 from PIL import Image
+from pydicom.pixel_data_handlers.util import apply_voi_lut
 
 
 def read_dicom(file_path):
@@ -14,47 +15,26 @@ def read_dicom(file_path):
     if dicom_data.file_meta.TransferSyntaxUID.is_compressed:
         dicom_data.decompress()
 
-    pixel_array = dicom_data.pixel_array.astype(np.float32)
+    img_array = apply_voi_lut(dicom_data.pixel_array, dicom_data)
 
-    # Apply to rescale slope and intercept if they exist
-    rescale_slope = float(getattr(dicom_data, "RescaleSlope", 1.0))
-    rescale_intercept = float(getattr(dicom_data, "RescaleIntercept", 0.0))
-    hu_pixels = (pixel_array * rescale_slope) + rescale_intercept
+    # Invert image if PhotometricInterpretation is MONOCHROME1
+    if 'PhotometricInterpretation' in dicom_data and dicom_data.PhotometricInterpretation == "MONOCHROME1":
+        img_array = np.max(img_array) - img_array
 
-    # If the photometric interpretation is MONOCHROME1, invert the pixel values
-    if dicom_data.PhotometricInterpretation == "MONOCHROME1":
-        hu_pixels = np.max(hu_pixels) - hu_pixels
+    # Normalize the image array to 0-255 and convert to uint8 for PIL Image
+    min_val = np.min(img_array)
+    max_val = np.max(img_array)
 
-    # Extract window center and window width from the DICOM itself
-    if "WindowCenter" in dicom_data and "WindowWidth" in dicom_data:
-        window_center = dicom_data.WindowCenter
-        window_width = dicom_data.WindowWidth
-        if isinstance(window_center, (list, pydicom.multival.MultiValue)):
-            window_center = float(window_center[0])
-        else:
-            window_center = float(window_center)
-        if isinstance(window_width, (list, pydicom.multival.MultiValue)):
-            window_width = float(window_width[0])
-        else:
-            window_width = float(window_width)
+    if max_val == min_val:
+        normalized_img = np.zeros_like(img_array, dtype=np.uint8)
     else:
-        # Fallback default values (ideal for InBreast images)
-        window_center = 1500
-        window_width = 1000
+        normalized_img = ((img_array - min_val) / (max_val - min_val) * 255).astype(np.uint8)
 
-    normalized = np.clip((hu_pixels - (window_center - window_width / 2)) / window_width, 0, 1)
-    image_array = (normalized * 255).astype(np.uint8)
+    gamma = 0.8
+    adjusted_img = 255 * (normalized_img / 255.0) ** gamma
+    adjusted_img = np.clip(adjusted_img, 0, 255).astype(np.uint8)
 
-    image_array = normalize_contrast(image_array)
-
-    return Image.fromarray(image_array)
-
-
-def normalize_contrast(image_array):
-    # Apply gamma correction to preserve subtle grayscale differences
-    gamma = 0.8  # Adjust gamma value as needed
-    adjusted = 255 * (image_array / 255) ** gamma
-    return adjusted.astype(np.uint8)
+    return Image.fromarray(adjusted_img, mode='L')
 
 
 # YOLO to JSON Conversion
