@@ -48,6 +48,56 @@
             max-width: 100%;
             height: auto;
         }
+        .image-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px; /* Space between image sets */
+            margin-bottom: 40px; /* Space between rows of results */
+            border: 1px solid #eee;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .image-set {
+            flex: 1 1 300px; /* Allow items to grow/shrink, min-width 300px */
+            text-align: center;
+            min-width: 250px; /* Ensure images don't get too small */
+        }
+        .image-set img {
+            max-width: 100%;
+            height: auto;
+            display: block; /* Remove extra space below image */
+            margin: 0 auto 10px auto; /* Center image and add space below */
+        }
+        .image-set h5 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .image-set .predictions-list {
+            text-align: left;
+            max-height: 150px; /* Limit height for predictions list */
+            overflow-y: auto; /* Add scroll if predictions are too many */
+            border: 1px solid #eee;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            margin-top: 10px;
+        }
+        .image-set .predictions-list p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .image-set .predictions-list p:not(:last-child) {
+            margin-bottom: 5px;
+        }
+        .error-message {
+            color: red;
+            font-weight: bold;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -56,9 +106,9 @@
     <div class="row">
         <form class="col s12" method="post" enctype="multipart/form-data">
             <div class="row">
-                <h5>Choose an image...</h5>
+                <h5>Choose image(s)...</h5>
                 <div class="input-field col s12">
-                    <input type="file" id="file" name="file" required>
+                    <input type="file" id="file" name="file" multiple required>
                 </div>
             </div>
             <div class="row">
@@ -73,26 +123,48 @@
                 </div>
             </div>
         </form>
-        {% if image_data %}
+        {% if message %}
+            <p class="center-align">{{ message }}</p>
+        {% endif %}
+
+        {% if all_results %}
         <div class="separator"></div>
-        <div class="row image-container">
-            <div class="col s4">
-                <h4 class="center-align">Input</h4>
-                <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ image_data_orig }}" alt="Original">
+        <h4 class="center-align">Detection Results</h4>
+            {% for result in all_results %}
+            <div class="image-row">
+                <h5 class="col s12 center-align">{{ result.filename }}</h5>
+                {% if result.error %}
+                    <p class="col s12 center-align error-message">{{ result.error }}</p>
+                {% else %}
+                    <div class="col s12 m4 image-set">
+                        <h5>Input</h5>
+                        <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ result.original_image }}" alt="Original">
+                    </div>
+                    {% if result.ground_truth_image %}
+                    <div class="col s12 m4 image-set">
+                        <h5>Ground Truth</h5>
+                        <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ result.ground_truth_image }}" alt="Ground Truth">
+                    </div>
+                    {% endif %}
+                    <div class="col s12 m4 image-set">
+                        <h5>Prediction</h5>
+                        <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ result.inferred_image }}" alt="Prediction">
+                        <a href="data:image/jpeg;base64,{{ result.inferred_image }}" download="{{ result.filename.split('.')[0] }}_prediction.jpg"
+                           class="waves-effect waves-light btn">Download</a>
+                        {% if result.predictions %}
+                            <div class="predictions-list">
+                                <h6>Predictions:</h6>
+                                {% for pred in result.predictions %}
+                                    <p>Category: {{ pred.category_id }}, Score: {{ "%.2f"|format(pred.score) }}</p>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p>No predictions found.</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </div>
-            {% if gt_data %}
-            <div class="col s4">
-                <h4 class="center-align">Ground Truth</h4>
-                <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ gt_data }}" alt="Ground Truth">
-            </div>
-            {% endif %}
-            <div class="col s4">
-                <h4 class="center-align">Prediction</h4>
-                <img class="responsive-img zoomable" src="data:image/jpeg;base64,{{ image_data }}" alt="Prediction">
-                <a href="data:image/jpeg;base64,{{ image_data }}" download="prediction.jpg"
-                   class="waves-effect waves-light btn">Download</a>
-            </div>
-        </div>
+            {% endfor %}
         {% endif %}
     </div>
 </div>

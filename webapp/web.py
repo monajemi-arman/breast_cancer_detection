@@ -229,28 +229,62 @@ def ground_truth():
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
-        if 'file' not in request.files:
-            return render_template('index.html', message='No file part')
-
-        file = request.files['file']
+        files = request.files.getlist('file')
         gt_file = request.files.get('gt_file')
 
-        if file.filename == '':
-            return render_template('index.html', message='No selected file')
+        if not files or all(f.filename == '' for f in files):
+            return render_template('index.html', message='No selected file(s)')
 
-        if file and allowed_file(file.filename):
-            result = process_image(file, gt_file)
-            return render_template(
-                'index.html',
-                message='File uploaded successfully',
-                image_data_orig=result['original_image'],
-                gt_data=result['ground_truth_image'],
-                image_data=result['inferred_image'],
-                predictions=result['predictions']
-            )
+        # Check if all files are allowed
+        for f in files:
+            if not allowed_file(f.filename):
+                return render_template('index.html', message=f'Invalid file format for {f.filename}')
+
+        gt_json = None
+        if gt_file and gt_file.filename.endswith('.json'):
+            try:
+                gt_json = json.load(gt_file)
+            except Exception as e:
+                return render_template('index.html', message=f"Error loading GT JSON: {str(e)}")
+
+        all_results = []
+        for file in files:
+            if file and allowed_file(file.filename):
+                try:
+                    # Pass gt_json to process_image for consistent handling of ground truth across multiple images
+                    result = process_image(file, gt_json=gt_json, infer_model=True)
+                    all_results.append({
+                        "filename": file.filename,
+                        "original_image": result['original_image'],
+                        "ground_truth_image": result['ground_truth_image'],
+                        "inferred_image": result['inferred_image'],
+                        "predictions": result['predictions']
+                    })
+                except Exception as e:
+                    all_results.append({
+                        "filename": file.filename,
+                        "error": f"Error processing {file.filename}: {str(e)}"
+                    })
+            else:
+                all_results.append({
+                    "filename": file.filename,
+                    "error": f"Invalid file format for {file.filename}"
+                })
+
+        return render_template(
+            'index.html',
+            message='Files uploaded successfully',
+            all_results=all_results
+        )
 
     return render_template('index.html')
 
 
 if __name__ == '__main__':
+    print("\n" + "="*80)
+    print("                 WEB APPLICATION IS RUNNING!")
+    print("                 ===========================")
+    print(f"\n        Please open your web browser and navigate to:")
+    print(f"        \033[1m\033[96mhttp://localhost:{port}\033[0m")
+    print("\n" + "="*80 + "\n")
     serve(app.wsgi_app, host=host, port=port)
