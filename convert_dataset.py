@@ -84,9 +84,14 @@ bbox_length_threshold = 0.005
 parser = argparse.ArgumentParser()
 parser.add_argument('-m', '--mode', type=str, choices=['yolo', 'mask', 'coco'],
                     help="Output dataset style", required=False, default=output_choice)
+parser.add_argument('--inbreast-only', action='store_true', help="Only process the INbreast dataset")
 args = parser.parse_args()
 output_choice = args.mode
 output_choice = output_choice.lower()
+
+# If --inbreast-only is specified, override chosen_datasets
+if args.inbreast_only:
+    chosen_datasets = ['inbreast']
 
 # Skip not implemented features
 if output_choice == 'mask':
