@@ -1,5 +1,5 @@
 # Use the NVIDIA CUDA base image
-FROM nvidia/cuda:12.9.1-cudnn-devel-ubuntu24.04
+FROM docker.io/nvidia/cuda:13.3.0-cudnn-devel-ubuntu24.04
 
 # Set environment variables to avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -16,13 +16,13 @@ RUN apt-get update && apt-get install -y \
 # Install Python dependencies
 RUN pip install --break-system-packages torch torchvision torchaudio
 
-# Install new node
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs
-
 # Make sure necessary libraries are present for fully functional python scripts
+RUN apt update
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository universe
+RUN apt-get update
 RUN apt-get install -y ffmpeg libsm6 libxext6 libmagic1
 
 # Our required modules
 COPY requirements.txt /
-RUN pip install --break-system-packages -r /requirements.txt
+RUN pip install --break-system-packages --ignore-installed -r /requirements.txt
