@@ -6,6 +6,24 @@ Mammography Mass Detection using Artificial Intelligence;
 <p style='text-align: justify;'>Using this project you will be able to train a model on mammography images for suspicious mass detection, deploy a simple web application for inference, and use several tools and API with custom features made for use in larger projects.</p>
 <p style='text-align: justify;'>It started first as a research project training a deep learning model on InBreast, CBIS-DDSM, MIAS datasets of public labeled mammography images. As the results were promising, we decided to expand the project and to implement tools and API services for local integration with current clinical applications. We gathered local labeled mammography images and made possible the use of customized AI in local hospitals.</p>
 
+## Publication 📄
+
+This work is described in the following publication:
+
+> Monajemi Mamaghani et al. (2026). A novel hierarchical transfer learning to enhance breast cancer detection on screening mammography using deep learning. *Physical and Engineering Sciences in Medicine*. https://doi.org/10.1007/s13246-026-01781-9
+
+If you use this repository or its associated methods in your research, please cite the paper:
+
+```bibtex
+@article{monajemi2026novel,
+  author  = {Monajemi Mamaghani et al.},
+  title   = {A novel hierarchical transfer learning to enhance breast cancer detection on screening mammography using deep learning},
+  journal = {Physical and Engineering Sciences in Medicine},
+  year    = {2026},
+  doi     = {10.1007/s13246-026-01781-9}
+}
+```
+
 # Table of Contents 📖
 - [Features](#features)
 - [Prerequisites](#prerequisites)
